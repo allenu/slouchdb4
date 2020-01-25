@@ -19,6 +19,16 @@
 		B7EDF11D23DC028A002513B1 /* ObjectCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF11C23DC028A002513B1 /* ObjectCache.swift */; };
 		B7EDF11F23DC0343002513B1 /* ObjectHistoryTracker.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF11E23DC0343002513B1 /* ObjectHistoryTracker.swift */; };
 		B7EDF12123DC1208002513B1 /* Database.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12023DC1208002513B1 /* Database.swift */; };
+		B7EDF12323DC1561002513B1 /* Session.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12223DC1561002513B1 /* Session.swift */; };
+		B7EDF12523DCB9A1002513B1 /* JournalManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12423DCB9A1002513B1 /* JournalManager.swift */; };
+		B7EDF12D23DCB9E4002513B1 /* JournalReadable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12723DCB9E4002513B1 /* JournalReadable.swift */; };
+		B7EDF12E23DCB9E4002513B1 /* JournalFileWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12823DCB9E4002513B1 /* JournalFileWriter.swift */; };
+		B7EDF12F23DCB9E4002513B1 /* JournalDataWriter.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12923DCB9E4002513B1 /* JournalDataWriter.swift */; };
+		B7EDF13023DCB9E4002513B1 /* JournalWritable.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12A23DCB9E4002513B1 /* JournalWritable.swift */; };
+		B7EDF13123DCB9E4002513B1 /* JournalDataReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12B23DCB9E4002513B1 /* JournalDataReader.swift */; };
+		B7EDF13223DCB9E4002513B1 /* JournalFileReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12C23DCB9E4002513B1 /* JournalFileReader.swift */; };
+		B7EDF13423DCBED7002513B1 /* RemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */; };
+		B7EDF13623DCC0C1002513B1 /* TODOs.md in Resources */ = {isa = PBXBuildFile; fileRef = B7EDF13523DCC0C1002513B1 /* TODOs.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -37,6 +47,16 @@
 		B7EDF11C23DC028A002513B1 /* ObjectCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectCache.swift; sourceTree = "<group>"; };
 		B7EDF11E23DC0343002513B1 /* ObjectHistoryTracker.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectHistoryTracker.swift; sourceTree = "<group>"; };
 		B7EDF12023DC1208002513B1 /* Database.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Database.swift; sourceTree = "<group>"; };
+		B7EDF12223DC1561002513B1 /* Session.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Session.swift; sourceTree = "<group>"; };
+		B7EDF12423DCB9A1002513B1 /* JournalManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalManager.swift; sourceTree = "<group>"; };
+		B7EDF12723DCB9E4002513B1 /* JournalReadable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalReadable.swift; sourceTree = "<group>"; };
+		B7EDF12823DCB9E4002513B1 /* JournalFileWriter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalFileWriter.swift; sourceTree = "<group>"; };
+		B7EDF12923DCB9E4002513B1 /* JournalDataWriter.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalDataWriter.swift; sourceTree = "<group>"; };
+		B7EDF12A23DCB9E4002513B1 /* JournalWritable.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalWritable.swift; sourceTree = "<group>"; };
+		B7EDF12B23DCB9E4002513B1 /* JournalDataReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalDataReader.swift; sourceTree = "<group>"; };
+		B7EDF12C23DCB9E4002513B1 /* JournalFileReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalFileReader.swift; sourceTree = "<group>"; };
+		B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteFileStore.swift; sourceTree = "<group>"; };
+		B7EDF13523DCC0C1002513B1 /* TODOs.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TODOs.md; sourceTree = "<group>"; };
 		FD6A7659EDC19A1E9DF0F55B /* Pods-SlouchDB4.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4/Pods-SlouchDB4.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -72,6 +92,7 @@
 		B7EDF0F723DC018B002513B1 = {
 			isa = PBXGroup;
 			children = (
+				B7EDF13523DCC0C1002513B1 /* TODOs.md */,
 				B7EDF10223DC018B002513B1 /* SlouchDB4 */,
 				B7EDF10123DC018B002513B1 /* Products */,
 				1CC3B69F96082B05127ACC46 /* Pods */,
@@ -105,13 +126,30 @@
 		B7EDF11723DC0235002513B1 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B7EDF12623DCB9E4002513B1 /* Journal */,
 				B7EDF11A23DC0263002513B1 /* JSONValue.swift */,
 				B7EDF11823DC0242002513B1 /* DatabaseObject.swift */,
 				B7EDF11C23DC028A002513B1 /* ObjectCache.swift */,
 				B7EDF11E23DC0343002513B1 /* ObjectHistoryTracker.swift */,
 				B7EDF12023DC1208002513B1 /* Database.swift */,
+				B7EDF12223DC1561002513B1 /* Session.swift */,
+				B7EDF12423DCB9A1002513B1 /* JournalManager.swift */,
 			);
 			path = Core;
+			sourceTree = "<group>";
+		};
+		B7EDF12623DCB9E4002513B1 /* Journal */ = {
+			isa = PBXGroup;
+			children = (
+				B7EDF12723DCB9E4002513B1 /* JournalReadable.swift */,
+				B7EDF12823DCB9E4002513B1 /* JournalFileWriter.swift */,
+				B7EDF12923DCB9E4002513B1 /* JournalDataWriter.swift */,
+				B7EDF12A23DCB9E4002513B1 /* JournalWritable.swift */,
+				B7EDF12B23DCB9E4002513B1 /* JournalDataReader.swift */,
+				B7EDF12C23DCB9E4002513B1 /* JournalFileReader.swift */,
+				B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */,
+			);
+			path = Journal;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -174,6 +212,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7EDF13623DCC0C1002513B1 /* TODOs.md in Resources */,
 				B7EDF11023DC018D002513B1 /* LaunchScreen.storyboard in Resources */,
 				B7EDF10D23DC018D002513B1 /* Assets.xcassets in Resources */,
 				B7EDF10B23DC018B002513B1 /* Main.storyboard in Resources */,
@@ -229,14 +268,23 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7EDF13423DCBED7002513B1 /* RemoteFileStore.swift in Sources */,
+				B7EDF13223DCB9E4002513B1 /* JournalFileReader.swift in Sources */,
 				B7EDF10823DC018B002513B1 /* ViewController.swift in Sources */,
 				B7EDF10423DC018B002513B1 /* AppDelegate.swift in Sources */,
+				B7EDF12F23DCB9E4002513B1 /* JournalDataWriter.swift in Sources */,
 				B7EDF10623DC018B002513B1 /* SceneDelegate.swift in Sources */,
 				B7EDF11923DC0242002513B1 /* DatabaseObject.swift in Sources */,
+				B7EDF13123DCB9E4002513B1 /* JournalDataReader.swift in Sources */,
 				B7EDF11B23DC0264002513B1 /* JSONValue.swift in Sources */,
+				B7EDF12523DCB9A1002513B1 /* JournalManager.swift in Sources */,
 				B7EDF11F23DC0343002513B1 /* ObjectHistoryTracker.swift in Sources */,
+				B7EDF12D23DCB9E4002513B1 /* JournalReadable.swift in Sources */,
+				B7EDF13023DCB9E4002513B1 /* JournalWritable.swift in Sources */,
 				B7EDF12123DC1208002513B1 /* Database.swift in Sources */,
 				B7EDF11D23DC028A002513B1 /* ObjectCache.swift in Sources */,
+				B7EDF12E23DCB9E4002513B1 /* JournalFileWriter.swift in Sources */,
+				B7EDF12323DC1561002513B1 /* Session.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

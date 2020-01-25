@@ -51,6 +51,9 @@ class Database {
         objectHistoryTracker.enqueue(diffs: diffs)
     }
     
+    
+    // TODO: Make it so that mergeEnqueued() can be called multiple times
+    // since process() will be doing work on chunks only in the future.
     func mergeEnqueued() {
         let mergeResult = objectHistoryTracker.process(objectCache: objectCache)
         if mergeResult.totalChanges > 0 {

@@ -153,12 +153,18 @@ class ObjectHistoryTracker {
         }
     }
     
+    // TODO: Make it so that process() can do a maximum of N updates at a time (to reduce
+    // memory consumption). We can keep calling it until MergeResult is empty.
+    
     // Go through pending diffs and process the changes they would generate.
     // This mutates our internal state to consider those changes applied.
     func process(objectCache: ObjectCache) -> MergeResult {
         var insertedObjects: [String : DatabaseObject] = [:]
         var removedObjects: [String] = []
         var updatedObjects: [String : DatabaseObject] = [:]
+        
+        // TODO: Take the first N items in pendingUpdates and only process those
+        // so that our list of inserted/removed/updated is a small subset (if needed).
         
         pendingUpdates.forEach { identifier in
             if let objectHistoryState = histories[identifier] {
