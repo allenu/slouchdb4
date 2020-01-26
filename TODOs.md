@@ -1,6 +1,43 @@
 
+- [ ] Test JournalManager
+    - [ ] Make a list of tests that JournalManager should undergo
+
+
+
+    - [ ] Design the data used for each test
+
+
+    - [x] JournalManager journals[] dictionary should be [String : UInt64] where each value
+          is a byte offset into the file stream, nothing more. We should not store "cursor"
+          information anymore. Just use a byte offset.
+
+          Nothing needs to use the nextDiffIndex!
+
+    - [x] JournalManager should not know about journal readers even...
+        - Just write a JournalFileManager.readNextDiffs(for identifier: String, at byteOffset: UInt64) -> Result
+          - and from the Result, you can get
+            - diffs
+            - next byte offset
+            - (maybe EOF data)
+
+    - [ ] Implement the *real* JournalFileManager
+        - [ ] Should "own" journal readers which it routes to via readNextDiffs()
+        - [ ] Implementation details:
+            - local journals in local/
+            - remote journals for syncing in remote/
+
+    - [x] JournalManager should not know about journal WRITERS either...
+        - just write a JournalFileManager.append(diff: ObjectDiff, to identifier: String)
+
+    - [x] Update JournalManagerStoredState so that it doesn't have JournalReaderState, but String : UInt64 too
+
 
 - [ ] Make remote file sync and diff pulling work
+    - [ ] Test file sync - syncFiles(completion:)
+    - [ ] Test grabbing latest diffs from journals - fetchLatestDiffsWithoutSync
+
+    - [ ] Before pushing local file, be sure latest edits are saved to disk
+
     - [ ] Remote file sync
         - [x] Push local journal only if remote is old
         - [ ] Fail early if local push fails
@@ -12,7 +49,6 @@
         - maybe it can be based on the number of journals we know have changed ??
 
     - [ ] fetchLatestDiffs
-
         - [ ] It should be possible to do file syncing optionally
             - if remote hasn't been set up yet
             - if we know we're not on the internet

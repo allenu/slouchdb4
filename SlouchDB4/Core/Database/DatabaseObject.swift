@@ -33,14 +33,14 @@ public func CreateDatabaseObject(from diffs: [ObjectDiff]) -> DatabaseObject? {
             createdObject = object
             
         case .update(_, _, let properties):
-            assert(createdObject != nil)
             if let oldCreatedObject = createdObject {
                 let newProperties = oldCreatedObject.properties.merging(properties, uniquingKeysWith: { $1 })
                 createdObject = DatabaseObject(type: oldCreatedObject.type, properties: newProperties)
             } else {
                 // If createdObject is nil, just means we didn't have the instruction to insert it yet.
                 // This can happen if we're missing a journal.
-                assertionFailure("Looks like we're missing a journal")
+                // assertionFailure("Looks like we're missing a journal")
+                NSLog("We're missing an object to update. No-op.")
             }
             
         case .remove:

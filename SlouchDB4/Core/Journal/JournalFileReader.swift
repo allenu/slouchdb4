@@ -18,16 +18,36 @@ public class JournalFileReader: JournalReadable {
     var fileHandle: FileHandle
     var fileData: Data?
     var fileDataEOF: Bool
+    var byteOffset: UInt64
     
     public init(url: URL) throws {
         self.url = url
         fileHandle = try FileHandle(forReadingFrom: url)
         fileDataEOF = false // assume false
+        byteOffset = 0
     }
     
-    public func readNext(cursor: JournalCursor, maxCount: Int) -> JournalReadResult {
-        guard !cursor.endOfFile else {
-            return JournalReadResult(diffs: [], cursor: cursor)
+    public func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
+        if self.byteOffset != byteOffset {
+            // Seek to that position
+            var seekSucceeded = false
+            do {
+                try fileHandle.seek(toOffset: byteOffset)
+                self.byteOffset = byteOffset
+                seekSucceeded = true
+            } catch {
+                // Failed to seek, so assume error
+                self.byteOffset = fileHandle.offsetInFile
+            }
+            
+            // If we needed to seek (and even if we failed), we have to clear out our cached fileData
+            // and clear out fileDataEOF since they are no longer valid for the seek position.
+            self.fileData = nil
+            self.fileDataEOF = false
+            
+            if !seekSucceeded {
+                return JournalReadResult(diffs: [], byteOffset: self.byteOffset)
+            }
         }
         
         // Read data in chunks of 16k and process it until we run out of bytes to read OR
@@ -65,7 +85,7 @@ public class JournalFileReader: JournalReadable {
 
         var encounteredEndOfFile: Bool = false
         
-        while let fileData = fileData, !encounteredEndOfFile {
+        while let fileData = fileData, !encounteredEndOfFile && diffs.count < maxDiffs {
             if fileData.count == 0 {
                 encounteredEndOfFile = true
                 break
@@ -75,6 +95,9 @@ public class JournalFileReader: JournalReadable {
                 let jsonDiffData = fileData.prefix(newlineIndex)
                 let dataWithJsonDiffRemoved = fileData.dropFirst(newlineIndex + 1) // skip newline as well
                 self.fileData = dataWithJsonDiffRemoved
+                
+                // Update byte offset
+                self.byteOffset = self.byteOffset + UInt64(newlineIndex + 1) // Include newline in total bytes processed for this line
                 
                 if jsonDiffData.count > 0 {
                     let str = String(data: jsonDiffData, encoding: .utf8)!
@@ -136,17 +159,6 @@ public class JournalFileReader: JournalReadable {
         }
         
         // No more data, so return what we have
-        return JournalReadResult(diffs: diffs, cursor: cursor)
-    }
-    
-    public func refreshSourceFile() throws {
-        // reload file handle. It may fail.
-
-        try fileHandle.close()
-        
-        fileHandle = try FileHandle(forReadingFrom: url)
-        
-        // Reset EOF marker
-        fileDataEOF = false // assume false
+        return JournalReadResult(diffs: diffs, byteOffset: self.byteOffset)
     }
 }

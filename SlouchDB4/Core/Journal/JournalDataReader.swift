@@ -16,18 +16,17 @@ public class JournalDataReader: JournalReadable {
         self.diffs = initialDiffs
     }
     
-    public func readNext(cursor: JournalCursor, maxCount: Int) -> JournalReadResult {
-        let diffsToRead = min(max(0, diffs.count - cursor.nextDiffIndex), maxCount)
-        let nextDiffIndex = cursor.nextDiffIndex + diffsToRead
+    public func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
+        if self.byteOffset != byteOffset {
+            // Simulate a seek to that position
+            self.byteOffset = byteOffset
+        }
+
+        let diffsToRead = min(max(0, diffs.count - Int(self.byteOffset)), maxDiffs)
         
-        // Assume each diff is stored as a "byte"
+        // Assume each diff is stored as a "byte" so we can count diffs easily
         self.byteOffset = self.byteOffset + UInt64(diffsToRead)
         
-        let cursor = JournalCursor(nextDiffIndex: nextDiffIndex, byteOffset: byteOffset, endOfFile: diffsToRead == 0)
-        return JournalReadResult(diffs: diffs, cursor: cursor)
-    }
-
-    public func refreshSourceFile() {
-        // Do nothing. This is not file-based.
+        return JournalReadResult(diffs: diffs, byteOffset: self.byteOffset)
     }
 }

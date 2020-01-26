@@ -8,7 +8,7 @@
 
 import Foundation
 
-public struct JournalCursor {
+public struct JournalCursor: Codable {
     public let nextDiffIndex: Int
     public let byteOffset: UInt64
     public let endOfFile: Bool
@@ -16,12 +16,9 @@ public struct JournalCursor {
 
 public struct JournalReadResult {
     public let diffs: [ObjectDiff]
-    public let cursor: JournalCursor
+    public let byteOffset: UInt64
 }
 
 public protocol JournalReadable {
-    func readNext(cursor: JournalCursor, maxCount: Int) -> JournalReadResult
-    
-    // If file at path changed, reload it
-    func refreshSourceFile() throws
+    func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult
 }

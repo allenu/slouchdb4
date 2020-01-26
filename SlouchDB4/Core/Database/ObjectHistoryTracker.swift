@@ -9,57 +9,6 @@
 import Foundation
 import BTree
 
-public enum ObjectDiff {
-    case insert(identifier: String, timestamp: Date, object: DatabaseObject)
-    case update(identifier: String, timestamp: Date, properties: [String : JSONValue])
-    case remove(identifier: String, timestamp: Date)
-    
-    public static func == (lhs: ObjectDiff, rhs: ObjectDiff) -> Bool {
-        switch (lhs, rhs) {
-        case (.insert(let leftIdentifier, let leftTimestamp, let leftObject),
-              .insert(let rightIdentifier, let rightTimestamp, let rightObject)):
-            return leftIdentifier == rightIdentifier && leftTimestamp == rightTimestamp && leftObject == rightObject
-        
-        case (.update(let leftIdentifier, let leftTimestamp, let leftProperties),
-              .update(let rightIdentifier, let rightTimestamp, let rightProperties)):
-            return leftIdentifier == rightIdentifier && leftTimestamp == rightTimestamp && leftProperties == rightProperties
-            
-        case (.remove(let leftIdentifier, let leftTimestamp),
-              .remove(let rightIdentifier, let rightTimestamp)):
-            return leftIdentifier == rightIdentifier && leftTimestamp == rightTimestamp
-            
-        default:
-            return false
-        }
-    }
-    
-    var identifier: String {
-        switch self {
-        case .insert(let identifier, _, _):
-            return identifier
-            
-        case .update(let identifier, _, _):
-            return identifier
-            
-        case .remove(let identifier, _):
-            return identifier
-        }
-    }
-    
-    var timestamp: Date {
-        switch self {
-        case .insert(_, let timestamp, _):
-            return timestamp
-            
-        case .update(_, let timestamp, _):
-            return timestamp
-            
-        case .remove(_, let timestamp):
-            return timestamp
-        }
-    }
-}
-
 enum ObjectHistoryProcessingState {
     case fastForward(nextDiffIndex: Int)
     case replay
@@ -88,14 +37,14 @@ struct MergeResult {
     }
 }
 
-class ObjectHistoryTracker {
+public class ObjectHistoryTracker {
     var histories: [String : ObjectHistoryState] = [:]
     
     // Cache which objects need update so that process() is faster.
     var pendingUpdates: Set<String> = Set<String>()
     
     // This queues up the diffs provided and updates the histories of each object.
-    func enqueue(diffs: [ObjectDiff]) {
+    public func enqueue(diffs: [ObjectDiff]) {
         diffs.forEach { diff in
             if let objectHistoryState = histories[diff.identifier] {
                 let originalDiffCount = objectHistoryState.diffs.count
@@ -140,7 +89,15 @@ class ObjectHistoryTracker {
                 
                 // See if we ended up updating the diffs. If so, record that it changed.
                 if objectHistoryState.diffs.count != originalDiffCount {
-                    pendingUpdates.insert(diff.identifier)
+                    
+                    // If the first diff is an insert, then this is a valid history that we can
+                    // act on, so insert into pending updates
+                    if let firstDiff = objectHistoryState.diffs.first,
+                        case ObjectDiff.insert = firstDiff {
+                        pendingUpdates.insert(diff.identifier)
+                    } else {
+                        // First diff is not an insert, so do not consider as pending update until then.
+                    }
                 }
             } else {
                 // Doesn't exist yet, so create it
@@ -148,7 +105,13 @@ class ObjectHistoryTracker {
                 let objectHistoryState = ObjectHistoryState(processingState: .replay, diffs: [diff])
                 histories[diff.identifier] = objectHistoryState
                 
-                pendingUpdates.insert(diff.identifier)
+                if case ObjectDiff.insert = diff {
+                    pendingUpdates.insert(diff.identifier)
+                } else {
+                    // If this is NOT an insert operation and it's the first one, do not treat this as
+                    // a pending update since we can't act on an object that doesn't have an insert
+                    // instruction.
+                }
             }
         }
     }

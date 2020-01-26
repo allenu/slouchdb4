@@ -11,7 +11,7 @@ import Foundation
 public protocol JournalWritable {
     // Appends to a journal and returns the current file size (i.e. the index to which
     // we would append next)
-    func append(diffs: [ObjectDiff]) -> UInt64
+    func append(diffs: [ObjectDiff])
     
     var byteOffset: UInt64 { get }
 }

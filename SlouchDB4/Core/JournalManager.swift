@@ -8,29 +8,35 @@
 
 import Foundation
 
-class JournalReaderState {
-    var currentCursor: JournalCursor
-    var reader: JournalReadable
+protocol JournalFileManaging {
+    func writeLocal(diffs: [ObjectDiff], to identifier: String)
     
-    init(currentCursor: JournalCursor, reader: JournalReadable) {
-        self.currentCursor = currentCursor
-        self.reader = reader
-    }
+    // Get the url for a local journal file (searches only in /local/)
+    func localFileUrl(for identifier: String) -> URL?
+
+    // We have a newer version of a remote journal file, so replace the file contents with the new one and
+    // call completion when done copying.
+    func replaceRemoteJournalFile(identifier: String, with url: URL, completion: @escaping () -> Void)
     
-    func refreshSourceFile() throws {
-        try reader.refreshSourceFile()
-    }
+    func readNextDiffs(from identifier: String, byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult
+}
+
+struct JournalManagerStoredState: Codable {
+    let localIdentifier: String
+    let journalByteOffsets: [String : UInt64]
+    let remoteFileVersion: [String : String]
+    let lastLocalVersionPushed: String
 }
 
 class JournalManager: JournalManaging {
-    let localJournalWriter: JournalWritable
-    var localJournalOffset: UInt64
-    
-    var localIdentifier: String
-    let storageUrl: URL
     let remoteFileStore: RemoteFileStore
+    var journalFileManager: JournalFileManaging
 
-    var journals: [String : JournalReaderState]
+    // --------------------------------------
+    // State data -- should come from storage
+    // --------------------------------------
+    var localIdentifier: String
+    var journalByteOffsets: [String : UInt64]
     
     // Key is the lastPathComponent of the file. However, the lastPathComponent of
     // a journal file is just the guid, so no to worry about file extensions.
@@ -39,26 +45,21 @@ class JournalManager: JournalManaging {
     // TODO: Make it possible to rotate through local identifiers
     var lastLocalVersionPushed: String
 
-    init(localIdentifier: String, storageUrl: URL, remoteFileStore: RemoteFileStore) {
-        // TODO: load all from file
-        // TODO: dependency inject
-        self.localIdentifier = localIdentifier
-        
-        self.storageUrl = storageUrl
-        localJournalWriter = JournalDataWriter(initialDiffs: [])
-        localJournalOffset = 0
-        
-        // TODO: Load these from the /remotes/ file
-        journals = [:]
-        
-        
+    init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStore, storedState: JournalManagerStoredState) {
+        self.journalFileManager = journalFileManager
         self.remoteFileStore = remoteFileStore
-        // TODO: Load from file store
-        lastLocalVersionPushed = "unknown"
+
+        self.localIdentifier = storedState.localIdentifier
+        self.journalByteOffsets = storedState.journalByteOffsets
+        self.lastLocalVersionPushed = storedState.lastLocalVersionPushed
+    }
+    
+    func save() {
+        // Save data to StoredState
     }
     
     func addToLocalJournal(diff: ObjectDiff) {
-        localJournalOffset = localJournalWriter.append(diffs: [diff])
+        journalFileManager.writeLocal(diffs: [diff], to: localIdentifier)
     }
     
     func syncFiles(completion: @escaping (SyncFilesResponse) -> Void) {
@@ -91,36 +92,34 @@ class JournalManager: JournalManaging {
                     case .success(let fileAndVersion):
                         
                         let updatedFiles: [String] = fileAndVersion.map { $0.url.lastPathComponent }
+                        
+                        let dispatchGroup = DispatchGroup()
+                        
                         fileAndVersion.forEach { fileAndVersion in
                             let remoteFileUrl = fileAndVersion.url
                             let fileIdentifier = remoteFileUrl.lastPathComponent
                             strongSelf.remoteFileVersion[fileIdentifier] = fileAndVersion.version
                             
-                            // TODO: Copy local file now
-                            let localFileUrl: URL = strongSelf.storageUrl.appendingPathComponent("remotes/\(fileIdentifier)")
                             
-                            // Add journal readers for each journal that we're missing
-                            if let existingJournalReaderState = strongSelf.journals[fileIdentifier] {
-                                // Let it know local file changed
-                                do {
-                                    try existingJournalReaderState.refreshSourceFile()
-                                } catch {
-                                    assertionFailure()
-                                    // Not sure how to handle this ...
-                                }
-                            } else {
-                                // Add new entry since it wasn't there yet
-                                // TODO: use Factory instead of refering to JournalFileReader class directly
-                                do {
-                                    strongSelf.journals[fileIdentifier] =
-                                        JournalReaderState(currentCursor: JournalCursor(nextDiffIndex: 0, byteOffset: 0, endOfFile: false),
-                                                           reader: try JournalFileReader(url: localFileUrl))
-                                } catch {
-                                    assertionFailure()
-                                    print("Couldn't load file \(localFileUrl)")
-                                }
-                            }
+                            dispatchGroup.enter()
+                            
+                            // Replace the remote journal file and when done update the state of this journal entry
+                            strongSelf
+                                .journalFileManager
+                                .replaceRemoteJournalFile(identifier: fileIdentifier, with: remoteFileUrl, completion: {
+
+                                    // Add journal readers for each journal that we're missing
+                                    if strongSelf.journalByteOffsets[fileIdentifier] == nil {
+                                        // Add new entry since it wasn't there yet
+                                        strongSelf.journalByteOffsets[fileIdentifier] = 0
+                                    }
+                                    
+                                    dispatchGroup.leave()
+                            })
                         }
+                        
+                        // Wait for all journal replacement requests to finish before calling completion
+                        dispatchGroup.wait()
                         
                         DispatchQueue.main.async {
                             completion(.success(updatedFiles: updatedFiles))
@@ -156,21 +155,24 @@ class JournalManager: JournalManaging {
                 }
                 
                 if shouldPushLocalFile {
-                    // TODO: path is not final
-                    let localFileUrl = strongSelf.storageUrl.appendingPathComponent("local/\(strongSelf.localIdentifier)")
                     
-                    strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
-                        guard let strongSelf = self else { return }
-                        
-                        switch pushResponse {
-                        case .success(let version):
-                            // Push succeeded.
-                            pushSucceeded = true
-                            strongSelf.lastLocalVersionPushed = version
+                    // Get the URL of the local journal
+                    if let localFileUrl = strongSelf.journalFileManager.localFileUrl(for: strongSelf.localIdentifier) {
+                        strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
+                            guard let strongSelf = self else { return }
                             
-                        case .failure(let reason):
-                            pushSucceeded = false
+                            switch pushResponse {
+                            case .success(let version):
+                                // Push succeeded.
+                                pushSucceeded = true
+                                strongSelf.lastLocalVersionPushed = version
+                                
+                            case .failure(let reason):
+                                pushSucceeded = false
+                            }
                         }
+                    } else {
+                        assertionFailure("Local file doesn't exist to push!")
                     }
                 } else {
                     pushSucceeded = true
@@ -197,27 +199,28 @@ class JournalManager: JournalManaging {
         
         var diffs: [ObjectDiff] = []
         var journalsHaveNoMoreChanges = false
-        var journalCursorsToUpdateAfterMerge: [String : JournalCursor] = [:]
+        var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
         
         while !journalsHaveNoMoreChanges {
             // Find a journal that has changes and consume as much as possible
             
             var loadedJournalChanges = false
-            journals.forEach { identifier, journalReaderState in
+            journalByteOffsets.forEach { identifier, byteOffset in
                 if diffs.count >= maxDiffs {
                     // Do nothing. We have enough diffs.
                 } else {
                     // Try to get changes from this journal, a max of N
                     let maxDiffsAttemptToFetch = maxDiffs - diffs.count
                     
-                    let currentCursor = journalReaderState.currentCursor
-                    let readResult = journalReaderState.reader.readNext(cursor: currentCursor, maxCount: maxDiffsAttemptToFetch)
+                    let readResult = self.journalFileManager.readNextDiffs(from: identifier,
+                                                                           byteOffset: byteOffset,
+                                                                           maxDiffs: maxDiffsAttemptToFetch)
                     
                     if readResult.diffs.count > 0 {
                         diffs.append(contentsOf: readResult.diffs)
                         loadedJournalChanges = true
                         
-                        journalCursorsToUpdateAfterMerge[identifier] = readResult.cursor
+                        journalByteOffsetsToUpdateAfterMerge[identifier] = readResult.byteOffset
                     } else {
                         // No diffs to get ... keep going
                     }
@@ -241,13 +244,9 @@ class JournalManager: JournalManaging {
                 guard let strongSelf = self else { return }
                 
                 if success {
-                    // We successfully merged the changes, so now we are safe to update our journal cursors
-                    journalCursorsToUpdateAfterMerge.forEach { identifier, cursor in
-                        if let journalReaderState = strongSelf.journals[identifier] {
-                            journalReaderState.currentCursor = cursor
-                        } else {
-                            assertionFailure()
-                        }
+                    // We successfully merged the changes, so now we are safe to update byte offsets
+                    journalByteOffsetsToUpdateAfterMerge.forEach { identifier, byteOffset in
+                        strongSelf.journalByteOffsets[identifier] = byteOffset
                     }
                 } else {
                     assertionFailure("What do we even do here if merging fails? Is it even possible?")
@@ -259,20 +258,26 @@ class JournalManager: JournalManaging {
     }
     
     func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
-        // TODO: Make file sync optional
+        // TODO: Add logic to see if we should sync files first
         
-        syncFiles(completion: { [weak self] syncFilesResponse in
-            guard let strongSelf = self else { return }
-            
-            switch syncFilesResponse {
-            case .success(let updatedFiles):
-                strongSelf.fetchLatestDiffsWithoutSync(completion: completion)
+        let syncFilesFirst = true
+        
+        if syncFilesFirst {
+            syncFiles(completion: { [weak self] syncFilesResponse in
+                guard let strongSelf = self else { return }
                 
-            case .failure:
-                DispatchQueue.main.async {
-                    completion(.failure, nil)
+                switch syncFilesResponse {
+                case .success(let updatedFiles):
+                    strongSelf.fetchLatestDiffsWithoutSync(completion: completion)
+                    
+                case .failure:
+                    DispatchQueue.main.async {
+                        completion(.failure, nil)
+                    }
                 }
-            }
-        })
+            })
+        } else {
+            fetchLatestDiffsWithoutSync(completion: completion)
+        }
     }
 }

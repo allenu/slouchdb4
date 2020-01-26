@@ -22,7 +22,6 @@ struct ObjectDiffJsonRepresentation: Codable {
     let properties: [String : JSONValue]?
 }
 
-
 public class JournalFileWriter: JournalWritable {
     let fileHandle: FileHandle
     public var byteOffset: UInt64
@@ -78,7 +77,7 @@ public class JournalFileWriter: JournalWritable {
         }
     }
     
-    public func append(diffs: [ObjectDiff]) -> UInt64 {
+    public func append(diffs: [ObjectDiff]) {
         // Each diff goes on its own line, separated by newlines
         diffs.forEach { diff in
             let jsonRepresentation: ObjectDiffJsonRepresentation
@@ -113,7 +112,5 @@ public class JournalFileWriter: JournalWritable {
         }
         
         self.byteOffset = fileHandle.offsetInFile
-        
-        return self.byteOffset
     }
 }

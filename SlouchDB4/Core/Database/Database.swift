@@ -42,15 +42,20 @@ class Database {
     
     // WIP: In-mem sorted list of all item indices
     public typealias SortedIdentifiers = SortedSet<String>
-    var sortedIdentifiers: SortedIdentifiers = SortedIdentifiers()
+    var sortedIdentifiers: SortedIdentifiers
 
-    let objectHistoryTracker: ObjectHistoryTracker = ObjectHistoryTracker()
-    let objectCache: ObjectCache = ObjectCache()
+    let objectHistoryTracker: ObjectHistoryTracker
+    let objectCache: ObjectCache
+    
+    public init(objectCache: ObjectCache, objectHistoryTracker: ObjectHistoryTracker, sortedIdentifiers: SortedIdentifiers = SortedIdentifiers()) {
+        self.objectCache = objectCache
+        self.objectHistoryTracker = objectHistoryTracker
+        self.sortedIdentifiers = sortedIdentifiers
+    }
     
     func enqueue(diffs: [ObjectDiff]) {
         objectHistoryTracker.enqueue(diffs: diffs)
     }
-    
     
     // TODO: Make it so that mergeEnqueued() can be called multiple times
     // since process() will be doing work on chunks only in the future.

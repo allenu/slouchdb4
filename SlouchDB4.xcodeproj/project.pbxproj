@@ -29,7 +29,22 @@
 		B7EDF13223DCB9E4002513B1 /* JournalFileReader.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF12C23DCB9E4002513B1 /* JournalFileReader.swift */; };
 		B7EDF13423DCBED7002513B1 /* RemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */; };
 		B7EDF13623DCC0C1002513B1 /* TODOs.md in Resources */ = {isa = PBXBuildFile; fileRef = B7EDF13523DCC0C1002513B1 /* TODOs.md */; };
+		B7EDF13E23DD48E3002513B1 /* SlouchDB4Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF13D23DD48E3002513B1 /* SlouchDB4Tests.swift */; };
+		B7EDF14623DD490C002513B1 /* ObjectHistoryTrackerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14523DD490C002513B1 /* ObjectHistoryTrackerTests.swift */; };
+		B7EDF14823DD5AF9002513B1 /* DatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */; };
+		B7EDF14D23DD60FA002513B1 /* JournalManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */; };
+		B7EDF14E23DD632A002513B1 /* ObjectDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14923DD5DC6002513B1 /* ObjectDiff.swift */; };
 /* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		B7EDF14023DD48E3002513B1 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B7EDF0F823DC018B002513B1 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = B7EDF0FF23DC018B002513B1;
+			remoteInfo = SlouchDB4;
+		};
+/* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
 		0814060DE4674D2DAB71EA81 /* Pods_SlouchDB4.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SlouchDB4.framework; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -57,6 +72,13 @@
 		B7EDF12C23DCB9E4002513B1 /* JournalFileReader.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = JournalFileReader.swift; sourceTree = "<group>"; };
 		B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemoteFileStore.swift; sourceTree = "<group>"; };
 		B7EDF13523DCC0C1002513B1 /* TODOs.md */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; path = TODOs.md; sourceTree = "<group>"; };
+		B7EDF13B23DD48E3002513B1 /* SlouchDB4Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = SlouchDB4Tests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7EDF13D23DD48E3002513B1 /* SlouchDB4Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SlouchDB4Tests.swift; sourceTree = "<group>"; };
+		B7EDF13F23DD48E3002513B1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B7EDF14523DD490C002513B1 /* ObjectHistoryTrackerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectHistoryTrackerTests.swift; sourceTree = "<group>"; };
+		B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTests.swift; sourceTree = "<group>"; };
+		B7EDF14923DD5DC6002513B1 /* ObjectDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectDiff.swift; sourceTree = "<group>"; };
+		B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalManagerTests.swift; sourceTree = "<group>"; };
 		FD6A7659EDC19A1E9DF0F55B /* Pods-SlouchDB4.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4/Pods-SlouchDB4.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -66,6 +88,13 @@
 			buildActionMask = 2147483647;
 			files = (
 				B6D096C6C25A8C372DFE39D4 /* Pods_SlouchDB4.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7EDF13823DD48E3002513B1 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -94,6 +123,7 @@
 			children = (
 				B7EDF13523DCC0C1002513B1 /* TODOs.md */,
 				B7EDF10223DC018B002513B1 /* SlouchDB4 */,
+				B7EDF13C23DD48E3002513B1 /* SlouchDB4Tests */,
 				B7EDF10123DC018B002513B1 /* Products */,
 				1CC3B69F96082B05127ACC46 /* Pods */,
 				64084511414F616E5B915C7A /* Frameworks */,
@@ -104,6 +134,7 @@
 			isa = PBXGroup;
 			children = (
 				B7EDF10023DC018B002513B1 /* SlouchDB4.app */,
+				B7EDF13B23DD48E3002513B1 /* SlouchDB4Tests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -126,14 +157,10 @@
 		B7EDF11723DC0235002513B1 /* Core */ = {
 			isa = PBXGroup;
 			children = (
+				B7EDF14B23DD5DE1002513B1 /* Database */,
 				B7EDF12623DCB9E4002513B1 /* Journal */,
-				B7EDF11A23DC0263002513B1 /* JSONValue.swift */,
-				B7EDF11823DC0242002513B1 /* DatabaseObject.swift */,
-				B7EDF11C23DC028A002513B1 /* ObjectCache.swift */,
-				B7EDF11E23DC0343002513B1 /* ObjectHistoryTracker.swift */,
-				B7EDF12023DC1208002513B1 /* Database.swift */,
-				B7EDF12223DC1561002513B1 /* Session.swift */,
 				B7EDF12423DCB9A1002513B1 /* JournalManager.swift */,
+				B7EDF12223DC1561002513B1 /* Session.swift */,
 			);
 			path = Core;
 			sourceTree = "<group>";
@@ -150,6 +177,31 @@
 				B7EDF13323DCBED7002513B1 /* RemoteFileStore.swift */,
 			);
 			path = Journal;
+			sourceTree = "<group>";
+		};
+		B7EDF13C23DD48E3002513B1 /* SlouchDB4Tests */ = {
+			isa = PBXGroup;
+			children = (
+				B7EDF13D23DD48E3002513B1 /* SlouchDB4Tests.swift */,
+				B7EDF13F23DD48E3002513B1 /* Info.plist */,
+				B7EDF14523DD490C002513B1 /* ObjectHistoryTrackerTests.swift */,
+				B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */,
+				B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */,
+			);
+			path = SlouchDB4Tests;
+			sourceTree = "<group>";
+		};
+		B7EDF14B23DD5DE1002513B1 /* Database */ = {
+			isa = PBXGroup;
+			children = (
+				B7EDF11A23DC0263002513B1 /* JSONValue.swift */,
+				B7EDF11823DC0242002513B1 /* DatabaseObject.swift */,
+				B7EDF14923DD5DC6002513B1 /* ObjectDiff.swift */,
+				B7EDF11C23DC028A002513B1 /* ObjectCache.swift */,
+				B7EDF11E23DC0343002513B1 /* ObjectHistoryTracker.swift */,
+				B7EDF12023DC1208002513B1 /* Database.swift */,
+			);
+			path = Database;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -174,6 +226,24 @@
 			productReference = B7EDF10023DC018B002513B1 /* SlouchDB4.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B7EDF13A23DD48E3002513B1 /* SlouchDB4Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B7EDF14223DD48E3002513B1 /* Build configuration list for PBXNativeTarget "SlouchDB4Tests" */;
+			buildPhases = (
+				B7EDF13723DD48E3002513B1 /* Sources */,
+				B7EDF13823DD48E3002513B1 /* Frameworks */,
+				B7EDF13923DD48E3002513B1 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B7EDF14123DD48E3002513B1 /* PBXTargetDependency */,
+			);
+			name = SlouchDB4Tests;
+			productName = SlouchDB4Tests;
+			productReference = B7EDF13B23DD48E3002513B1 /* SlouchDB4Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
@@ -186,6 +256,10 @@
 				TargetAttributes = {
 					B7EDF0FF23DC018B002513B1 = {
 						CreatedOnToolsVersion = 11.3;
+					};
+					B7EDF13A23DD48E3002513B1 = {
+						CreatedOnToolsVersion = 11.3;
+						TestTargetID = B7EDF0FF23DC018B002513B1;
 					};
 				};
 			};
@@ -203,6 +277,7 @@
 			projectRoot = "";
 			targets = (
 				B7EDF0FF23DC018B002513B1 /* SlouchDB4 */,
+				B7EDF13A23DD48E3002513B1 /* SlouchDB4Tests */,
 			);
 		};
 /* End PBXProject section */
@@ -216,6 +291,13 @@
 				B7EDF11023DC018D002513B1 /* LaunchScreen.storyboard in Resources */,
 				B7EDF10D23DC018D002513B1 /* Assets.xcassets in Resources */,
 				B7EDF10B23DC018B002513B1 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		B7EDF13923DD48E3002513B1 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -281,6 +363,7 @@
 				B7EDF11F23DC0343002513B1 /* ObjectHistoryTracker.swift in Sources */,
 				B7EDF12D23DCB9E4002513B1 /* JournalReadable.swift in Sources */,
 				B7EDF13023DCB9E4002513B1 /* JournalWritable.swift in Sources */,
+				B7EDF14E23DD632A002513B1 /* ObjectDiff.swift in Sources */,
 				B7EDF12123DC1208002513B1 /* Database.swift in Sources */,
 				B7EDF11D23DC028A002513B1 /* ObjectCache.swift in Sources */,
 				B7EDF12E23DCB9E4002513B1 /* JournalFileWriter.swift in Sources */,
@@ -288,7 +371,26 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B7EDF13723DD48E3002513B1 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B7EDF14823DD5AF9002513B1 /* DatabaseTests.swift in Sources */,
+				B7EDF14D23DD60FA002513B1 /* JournalManagerTests.swift in Sources */,
+				B7EDF14623DD490C002513B1 /* ObjectHistoryTrackerTests.swift in Sources */,
+				B7EDF13E23DD48E3002513B1 /* SlouchDB4Tests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B7EDF14123DD48E3002513B1 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = B7EDF0FF23DC018B002513B1 /* SlouchDB4 */;
+			targetProxy = B7EDF14023DD48E3002513B1 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
 
 /* Begin PBXVariantGroup section */
 		B7EDF10923DC018B002513B1 /* Main.storyboard */ = {
@@ -462,6 +564,46 @@
 			};
 			name = Release;
 		};
+		B7EDF14323DD48E3002513B1 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NQ4H433LH4;
+				INFOPLIST_FILE = SlouchDB4Tests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ussherpress.SlouchDB4Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SlouchDB4.app/SlouchDB4";
+			};
+			name = Debug;
+		};
+		B7EDF14423DD48E3002513B1 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = NQ4H433LH4;
+				INFOPLIST_FILE = SlouchDB4Tests/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.ussherpress.SlouchDB4Tests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/SlouchDB4.app/SlouchDB4";
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -479,6 +621,15 @@
 			buildConfigurations = (
 				B7EDF11523DC018D002513B1 /* Debug */,
 				B7EDF11623DC018D002513B1 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B7EDF14223DD48E3002513B1 /* Build configuration list for PBXNativeTarget "SlouchDB4Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B7EDF14323DD48E3002513B1 /* Debug */,
+				B7EDF14423DD48E3002513B1 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

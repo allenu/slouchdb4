@@ -10,7 +10,14 @@ import Foundation
 
 typealias ObjectDictionary = [String : DatabaseObject]
 
-public class ObjectCache {
+public protocol ObjectCache {
+    func insert(identifier: String, object: DatabaseObject)
+    func replace(identifier: String, object: DatabaseObject)
+    func fetch(identifier: String) -> DatabaseObject?
+    func remove(identifier: String)
+}
+
+public class InMemObjectCache: ObjectCache {
     private var objects: ObjectDictionary = [:]
     
     public init() {

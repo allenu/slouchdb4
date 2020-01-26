@@ -19,11 +19,9 @@ public class JournalDataWriter: JournalWritable {
         byteOffset = UInt64(initialDiffs.count)
     }
     
-    public func append(diffs: [ObjectDiff]) -> UInt64 {
+    public func append(diffs: [ObjectDiff]) {
         self.diffs.append(contentsOf: diffs)
         
         self.byteOffset = self.byteOffset + UInt64(diffs.count)
-        
-        return self.byteOffset
     }
 }
