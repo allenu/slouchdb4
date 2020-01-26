@@ -191,6 +191,17 @@ class JournalManager: JournalManaging {
         })
     }
     
+    // The job of this function is to grab as many diffs (at most maxDiffs) from the journals that have pending
+    // diffs that we have not yet processed.
+    //
+    // We keep track of a byte offset within a journal and if the journal gets updated with new data, we can
+    // try to fetch from it and update the byte offset if we do get more data from it.
+    //
+    // We go through each journal in our list, one at a time, grabbing diffs. If we exhaust all the diffs in
+    // a single journal and still have room for more diffs, we go onto the next journal in the list (arbitrarily
+    // ordered by the journalByteOffsets dictionary) and try to get more diffs from that.
+    //
+    // If we find there are no more diffs outstanding, then we return before filling up the diffs with max content.
     func fetchLatestDiffsWithoutSync(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
         let maxDiffs: Int = 100
         
