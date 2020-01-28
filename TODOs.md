@@ -1,5 +1,48 @@
 
+- [ ] Design folder structure for everything
+
+    journals/
+        remotes/
+        locals/
+        manager/
+            JSON data for stored state of journal manager
+            - journal byte offsets
+            - local identifier (s)
+            - remote file versions
+
+    object-history-db/
+        sqlite stuff or JSON data
+
+    object-cache-db/
+        sqlite stuff or JSON data
+
 - [ ] Test JournalManager
+    - [x] Break out the sync logic so that it's functional
+
+        - input
+            - local identifier
+            - local versions dictionary
+            - remote versions dictionary
+
+        - output
+            - list of files to push
+            - list of files to pull
+
+    - [ ] Design the data used for each test
+
+        - [x] SYNCING TESTS
+            - need to set local versions dictionary
+            - need to set remote versions dictionary
+
+        - [ ] FETCHING TESTS
+            - simulate each journal's total diff count
+            - each journal will return an .insert diff with identifier of "N" where N is the journal index 
+              - it's true that the diffs are repeated .inserts that would never happen in real life, but we're not testing that
+              - timestamp will be a 1 second offset from some reference point so that we can test that it's the diff index we want
+            - when each journal "read" is called, we just compute how many diffs to return, the starting index (for the timestamp
+              creation) and then we create that many diffs
+
+
     - [ ] Make a list of tests that JournalManager should undergo
 
         SYNCING tests
@@ -139,37 +182,42 @@
             - test with one journal
             - test with two journals
 
-    - [ ] Design the data used for each test
-
-        SYNCING TESTS
-        - need to set local versions dictionary
-        - need to set remote versions dictionary
-
-        FETCHING TESTS
-        - simulate each journal's total diff count
-        - each journal will return an .insert diff with identifier of "N" where N is the journal index 
-          - it's true that the diffs are repeated .inserts that would never happen in real life, but we're not testing that
-          - timestamp will be a 1 second offset from some reference point so that we can test that it's the diff index we want
-        - when each journal "read" is called, we just compute how many diffs to return, the starting index (for the timestamp
-          creation) and then we create that many diffs
-
-
-    - [ ] Break out the sync logic so that it's functional
-
-        - input
-            - local identifier
-            - local versions dictionary
-            - remote versions dictionary
-
-        - output
-            - list of files to push
-            - list of files to pull
-
-    - [ ] Break out code that actually does the operations so it takes the output of the above and processes
+    - [x] Break out code that actually does the operations so it takes the output of the above and processes
           each stage separately
 
           - note: it will still need to do the fetch diffs operation at the end
 
+    - [ ] Implement saving
+        - [ ] ObjectCache saving
+            - [ ] InMemObjectCache
+                - [ ] save to a URL path a json file
+                - [ ] restore from a URL path
+
+            - [ ] SqliteObjectCache
+                - [ ] initialize with path to sqlite database
+                    - create it if necessary
+                        - each entry will just be
+                            - identifier (hopefully we can use our own UUID)
+                            - type column
+                            - timestamp
+                            - properties JSON payload
+                - [ ] save ? 
+
+        - [ ] ObjectHistoryTracker
+            - [ ] InMem version
+                - [ ] save histories to json file
+                - [ ] save list of pending updates to json file
+            - [ ] SQlite version
+                - [ ] initialize database
+                    - each entry is just
+                        - processing state
+                        - next diff index to process (only if non-replay style, otherwise will be 0)
+                        - diffs as a JSON array
+                - [ ] generate pending from scratch when loading file ?? might be inefficient to go
+                      through every object EVER
+                      - [ ] Could store last time we processed updates and find all histories that were updated since then
+                    - if a history for an object has a processing state that has nextDiff > total diffs OR is .replay,
+                      add it to the list of pendingUpdates
 
     - [x] JournalManager journals[] dictionary should be [String : UInt64] where each value
           is a byte offset into the file stream, nothing more. We should not store "cursor"

@@ -8,9 +8,15 @@
 
 import Foundation
 
+public enum SyncFilesFailureReason {
+    case pushFailed
+    case fetchRemoteVersionsFailed
+    case fetchRemoteFilesFailed
+}
+
 public enum SyncFilesResponse {
     case success(updatedFiles: [String])
-    case failure
+    case failure(reason: SyncFilesFailureReason)
 }
 
 public enum FetchJournalSuccessType {

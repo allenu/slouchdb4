@@ -28,6 +28,20 @@ struct JournalManagerStoredState: Codable {
     let lastLocalVersionPushed: String
 }
 
+// Fetch all those files that differ from local version, excluding a known list.
+public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [String : String], remoteFileVersions: [String : String]) -> [String] {
+    let filesToFetch: [String] = remoteFileVersions.filter( { identifier, remoteVersion in
+        let isExcludedFile = excludedFiles.contains(identifier)
+        guard !isExcludedFile else { return false }
+
+        let localFileVersion = localFileVersions[identifier] ?? "not-found"
+        let shouldFetchFile = localFileVersion != remoteVersion
+        return shouldFetchFile
+    }).map { $0.key }
+    
+    return filesToFetch
+}
+
 class JournalManager: JournalManaging {
     let remoteFileStore: RemoteFileStore
     var journalFileManager: JournalFileManaging
@@ -63,26 +77,13 @@ class JournalManager: JournalManaging {
     }
     
     func syncFiles(completion: @escaping (SyncFilesResponse) -> Void) {
-        var pushSucceeded = false
-        
         let doFetchRemoteFiles: ([String : String]) -> Void = { [weak self] fetchedVersions in
             guard let strongSelf = self else { return }
             
             // Fetch all those files that differ from local version
-            let filesToFetch: [String] = fetchedVersions.filter( { keyValue in
-                let fetchedVersion = keyValue.value
-                let localKnownVersion = strongSelf.remoteFileVersion[keyValue.key] ?? "not-found"
-                
-                let shouldFetchFile: Bool
-                if keyValue.key == strongSelf.localIdentifier {
-                    // Never pull a local file!
-                    shouldFetchFile = false
-                } else {
-                    shouldFetchFile = localKnownVersion != fetchedVersion
-                }
-
-                return shouldFetchFile
-            }).map { $0.key }
+            let filesToFetch = findNewerRemoteFiles(excludedFiles: [strongSelf.localIdentifier],
+                                                    localFileVersions: strongSelf.remoteFileVersion,
+                                                    remoteFileVersions: fetchedVersions)
             
             if filesToFetch.count > 0 {
                 strongSelf.remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
@@ -90,7 +91,6 @@ class JournalManager: JournalManaging {
                     
                     switch response {
                     case .success(let fileAndVersion):
-                        
                         let updatedFiles: [String] = fileAndVersion.map { $0.url.lastPathComponent }
                         
                         let dispatchGroup = DispatchGroup()
@@ -99,7 +99,6 @@ class JournalManager: JournalManaging {
                             let remoteFileUrl = fileAndVersion.url
                             let fileIdentifier = remoteFileUrl.lastPathComponent
                             strongSelf.remoteFileVersion[fileIdentifier] = fileAndVersion.version
-                            
                             
                             dispatchGroup.enter()
                             
@@ -127,7 +126,7 @@ class JournalManager: JournalManaging {
                         
                     case .failure(let reason):
                         DispatchQueue.main.async {
-                            completion(.failure)
+                            completion(.failure(reason: .fetchRemoteFilesFailed))
                         }
                     }
                 }
@@ -155,7 +154,6 @@ class JournalManager: JournalManaging {
                 }
                 
                 if shouldPushLocalFile {
-                    
                     // Get the URL of the local journal
                     if let localFileUrl = strongSelf.journalFileManager.localFileUrl(for: strongSelf.localIdentifier) {
                         strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
@@ -164,28 +162,29 @@ class JournalManager: JournalManaging {
                             switch pushResponse {
                             case .success(let version):
                                 // Push succeeded.
-                                pushSucceeded = true
                                 strongSelf.lastLocalVersionPushed = version
                                 
+                                doFetchRemoteFiles(fetchedVersions)
+                                
                             case .failure(let reason):
-                                pushSucceeded = false
+                                completion(.failure(reason: .pushFailed))
                             }
                         }
                     } else {
+                        // Let's pretend the push succeeded since we can't recover from a scenario where a local
+                        // file we expected doesn't exist. Just gracefully move on.
                         assertionFailure("Local file doesn't exist to push!")
+
+                        doFetchRemoteFiles(fetchedVersions)
                     }
                 } else {
-                    pushSucceeded = true
+                    // No files to push, so treat as success and go onto next step
+                    doFetchRemoteFiles(fetchedVersions)
                 }
-                
-                // TODO: Do something with push success ... ? Like fail?
-                _ = pushSucceeded
-                
-                doFetchRemoteFiles(fetchedVersions)
                 
             case .failure(let reason):
                 DispatchQueue.main.async {
-                    completion(.failure)
+                    completion(.failure(reason: .fetchRemoteVersionsFailed))
                 }
             }
         })

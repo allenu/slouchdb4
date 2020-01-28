@@ -104,4 +104,7 @@ class JournalManagerTests: XCTestCase {
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
     }
+    
+    // Test fetchLatestDiffsWithoutSync
+    
 }

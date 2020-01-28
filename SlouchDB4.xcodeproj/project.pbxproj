@@ -34,6 +34,7 @@
 		B7EDF14823DD5AF9002513B1 /* DatabaseTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */; };
 		B7EDF14D23DD60FA002513B1 /* JournalManagerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */; };
 		B7EDF14E23DD632A002513B1 /* ObjectDiff.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14923DD5DC6002513B1 /* ObjectDiff.swift */; };
+		B7EDF15023E00D1A002513B1 /* FindNewerRemoteFilesTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7EDF14F23E00D1A002513B1 /* FindNewerRemoteFilesTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -79,6 +80,7 @@
 		B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatabaseTests.swift; sourceTree = "<group>"; };
 		B7EDF14923DD5DC6002513B1 /* ObjectDiff.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ObjectDiff.swift; sourceTree = "<group>"; };
 		B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JournalManagerTests.swift; sourceTree = "<group>"; };
+		B7EDF14F23E00D1A002513B1 /* FindNewerRemoteFilesTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FindNewerRemoteFilesTests.swift; sourceTree = "<group>"; };
 		FD6A7659EDC19A1E9DF0F55B /* Pods-SlouchDB4.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4/Pods-SlouchDB4.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -187,6 +189,7 @@
 				B7EDF14523DD490C002513B1 /* ObjectHistoryTrackerTests.swift */,
 				B7EDF14723DD5AF9002513B1 /* DatabaseTests.swift */,
 				B7EDF14C23DD60FA002513B1 /* JournalManagerTests.swift */,
+				B7EDF14F23E00D1A002513B1 /* FindNewerRemoteFilesTests.swift */,
 			);
 			path = SlouchDB4Tests;
 			sourceTree = "<group>";
@@ -375,6 +378,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B7EDF15023E00D1A002513B1 /* FindNewerRemoteFilesTests.swift in Sources */,
 				B7EDF14823DD5AF9002513B1 /* DatabaseTests.swift in Sources */,
 				B7EDF14D23DD60FA002513B1 /* JournalManagerTests.swift in Sources */,
 				B7EDF14623DD490C002513B1 /* ObjectHistoryTrackerTests.swift in Sources */,
