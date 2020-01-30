@@ -28,6 +28,8 @@
             - list of files to push
             - list of files to pull
 
+    - [ ] Design fetching multiple files at once and only completing once all are pulled down.
+
     - [ ] Design the data used for each test
 
         - [x] SYNCING TESTS
@@ -42,12 +44,15 @@
             - when each journal "read" is called, we just compute how many diffs to return, the starting index (for the timestamp
               creation) and then we create that many diffs
 
+            - In fact we just need to mock out the number of diffs to return on each request. We don't even really
+              need to simulate the byteOffset, but it does help with the implementation...
+
 
     - [ ] Make a list of tests that JournalManager should undergo
 
         SYNCING tests
 
-        - we have no local files and no remote files and we do a sync
+        x we have no local files and no remote files and we do a sync
             => no data transfer should occur
 
         - we have one local journal and no remotes and we do a sync
@@ -59,24 +64,26 @@
         - we have one local journal and remote knows about an older version
             => local journal should be pushed up
 
-        - we have one remote file and not locally
+        x we have one remote file and not locally
             => we should pull it down
             => the local known version should be updated
 
-        - we have one remote file and not locally and we call sync twice
+        x we have one remote file and not locally and we call sync twice
             => we should pull it down just the first time
             => the second time should be a no-op
 
-        - we have one remote file and have it locally at same version
+            *** no need: we can just test that if local file is same as remote that nothing happens
+
+        x we have one remote file and have it locally at same version
             => we should NOT pull it down
 
-        - we have one remote file and have it locally at different version
+        x we have one remote file and have it locally at different version
             => we should pull it down
 
-        - we have two remote files, one we have locally at same version and one we don't know about
+        x we have two remote files, one we have locally at same version and one we don't know about
             => we should only pull down one we don't know about
 
-        - we have two remotes that we don't have locally
+        x we have two remotes that we don't have locally
             => we should pull both down
 
         - we have local file and remote doesn't exist, we have two remotes that we don't have locally

@@ -43,6 +43,8 @@ public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [St
 }
 
 class JournalManager: JournalManaging {
+    let maxDiffs: Int = 100
+    
     let remoteFileStore: RemoteFileStore
     var journalFileManager: JournalFileManaging
 
@@ -202,8 +204,6 @@ class JournalManager: JournalManaging {
     //
     // If we find there are no more diffs outstanding, then we return before filling up the diffs with max content.
     func fetchLatestDiffsWithoutSync(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
-        let maxDiffs: Int = 100
-        
         // Go through journals getting up to maxDiffs until there are no more changes
         // or we reach maxDiffs.
         
@@ -216,6 +216,12 @@ class JournalManager: JournalManaging {
             
             var loadedJournalChanges = false
             journalByteOffsets.forEach { identifier, byteOffset in
+                
+                // Try to use journalByteOffsetsToUpdateAfterMerge entry if available as it has
+                // our updated pointer in it. journalByteOffsets won't be updated until we commit
+                // the change.
+                let updatedByteOffset = journalByteOffsetsToUpdateAfterMerge[identifier] ?? byteOffset
+                
                 if diffs.count >= maxDiffs {
                     // Do nothing. We have enough diffs.
                 } else {
@@ -223,7 +229,7 @@ class JournalManager: JournalManaging {
                     let maxDiffsAttemptToFetch = maxDiffs - diffs.count
                     
                     let readResult = self.journalFileManager.readNextDiffs(from: identifier,
-                                                                           byteOffset: byteOffset,
+                                                                           byteOffset: updatedByteOffset,
                                                                            maxDiffs: maxDiffsAttemptToFetch)
                     
                     if readResult.diffs.count > 0 {
@@ -242,7 +248,7 @@ class JournalManager: JournalManaging {
         
         DispatchQueue.main.async {
             let successType: FetchJournalSuccessType
-            if diffs.count == maxDiffs {
+            if diffs.count == self.maxDiffs {
                 // Assume there may be more results
                 successType = .partialResults(diffs: diffs, percent: 0.25)
             } else {

@@ -60,6 +60,14 @@ class MockRemoteFileStore: RemoteFileStore {
 }
 
 class MockJournalFileManager: JournalFileManaging {
+    let totalDiffs: [String : Int]
+    let startDate: Date
+    
+    init(totalDiffs: [String : Int], startDate: Date) {
+        self.totalDiffs = totalDiffs
+        self.startDate = startDate
+    }
+    
     func writeLocal(diffs: [ObjectDiff], to identifier: String) {
         // Who cares... doesn't need to be implemented for testing.
     }
@@ -69,8 +77,18 @@ class MockJournalFileManager: JournalFileManaging {
     }
 
     func readNextDiffs(from identifier: String, byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
+        let totalDiffsForThisJournal = totalDiffs[identifier] ?? 0
+        let diffsRemaining = max(0, Int(totalDiffsForThisJournal) - Int(byteOffset))
+        let diffsToReturn = min(diffsRemaining, maxDiffs)
+        
         // For testing, we'll consider each diff to be one byte in size
-        let diffs: [ObjectDiff] = [] // TODO:
+        let diffs: [ObjectDiff] = Array(0..<diffsToReturn).map { index in
+            let identifier = "\(identifier)-\(index)"
+            let timestamp = startDate.addingTimeInterval(TimeInterval(index))
+            let object = DatabaseObject(type: "person", properties: ["name" : .string("Name-\(index)")])
+            let diff = ObjectDiff.insert(identifier: identifier, timestamp: timestamp, object: object)
+            return diff
+        }
         let newByteOffset = byteOffset + UInt64(diffs.count)
         
         return JournalReadResult(diffs: diffs, byteOffset: newByteOffset)
@@ -84,9 +102,112 @@ class MockJournalFileManager: JournalFileManaging {
 }
 
 class JournalManagerTests: XCTestCase {
-    func testFoo() {
-        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [ "aaa" : "002",
-                                                                                                               "bbb" : "002",
+    
+    // Test fetchLatestDiffsWithoutSync
+
+    func testNoChanges() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [])])
+        let totalDiffs: [String : Int] = [
+            "j1" : 0,
+            "j2" : 0
+        ]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["j1" : 0, "j2" : 0],
+                                                    remoteFileVersion: [:],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+        
+        journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
+            switch response {
+            case .success(let type):
+                switch type {
+                case .partialResults(let diffs, let percent):
+                    XCTFail()
+
+                case .results(let diffs):
+                    XCTAssert(diffs.count == 0)
+                    
+                    // TODO: Verify each diff to make sure we got back 5 from j1 and 10 from j2
+                    callback?(true)
+                }
+                
+            case .failure:
+                XCTFail()
+            }
+        })
+    }
+    
+    // Test that if we have 115 changes where 100 is max fetch each time, then if we do
+    // two requests we should get 100 diffs back and then 15 diffs back.
+    func testMoreThanMaxChanges() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [])])
+        let totalDiffs: [String : Int] = [
+            "j1" : 105,
+            "j2" : 10
+        ]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["j1" : 0, "j2" : 0],
+                                                    remoteFileVersion: [:],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+        
+        let secondRequest: () -> Void = {
+            journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
+                switch response {
+                case .success(let type):
+                    switch type {
+                        case .partialResults(let diffs, let percent):
+                        XCTFail()
+                            
+                    case .results(let diffs):
+                        XCTAssert(diffs.count == 15)
+                    }
+
+                case .failure:
+                    XCTFail()
+                }
+            })
+        }
+        
+        journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
+            switch response {
+            case .success(let type):
+                switch type {
+                case .partialResults(let diffs, let percent):
+                    XCTAssert(diffs.count == journalManager.maxDiffs)
+                    
+                    secondRequest()
+                    
+                    // MUST call this back so that journalManager can update its offsets
+                    callback?(true)
+
+                case .results(let diffs):
+                    XCTFail()
+                }
+                
+            case .failure:
+                XCTFail()
+            }
+        })
+    }
+    
+    func testAbitFromEach() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [ "j1" : "002",
+                                                                                                               "j2" : "002",
                                                                                                                "local" : "001" ]) ],
                                                       pushLocalResponses: [.success(version: "002")],
                                                       fetchFilesResponses: [.success(filesAndVersions: [
@@ -94,7 +215,59 @@ class JournalManagerTests: XCTestCase {
                                                         FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/bbb"), version: "002"),
                                                         FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/local"), version: "001"),
                                                       ])])
-        let mockJournalFileManager = MockJournalFileManager()
+        let totalDiffs: [String : Int] = [
+            "j1" : 5,
+            "j2" : 10
+        ]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["j1" : 0, "j2" : 0],
+                                                    remoteFileVersion: [:],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+        
+        journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
+            switch response {
+            case .success(let type):
+                switch type {
+                case .partialResults(let diffs, let percent):
+                    XCTFail()
+
+                case .results(let diffs):
+                    XCTAssert(diffs.count == 15)
+                    
+                    // Verify that journal byte offsets are unchanged until we call callback
+                    XCTAssert(journalManager.journalByteOffsets["j1"] == 0)
+                    XCTAssert(journalManager.journalByteOffsets["j2"] == 0)
+                    
+                    // TODO: Verify each diff to make sure we got back 5 from j1 and 10 from j2
+                    callback?(true)
+
+                    // After callback, they are updated
+                    XCTAssert(journalManager.journalByteOffsets["j1"] == 5)
+                    XCTAssert(journalManager.journalByteOffsets["j2"] == 10)
+                }
+                
+            case .failure:
+                XCTFail()
+            }
+        })
+    }
+    
+    // Test syncing
+    
+    func testSyncNoLocalsNoRemotes() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
         let storedState = JournalManagerStoredState(localIdentifier: "local",
                                                     journalByteOffsets: [:],
                                                     remoteFileVersion: [:],
@@ -103,8 +276,175 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 0)
+                XCTAssert(journalManager.journalByteOffsets.count == 0)
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
+    }
+
+    func testSyncFetchOneRemoteThatWeDontHaveYet() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/abc"), version: "2"),
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: [:],
+                                                    remoteFileVersion: [:],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 1)
+                XCTAssert(updatedFiles.first! == "abc")
+                XCTAssert(journalManager.journalByteOffsets.count == 1) // Create a new entry for it after fetching, set at byte offset 0
+                XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
+    }
+
+    func testSyncDoNotFetchOneRemoteIfVersionIsSame() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/abc"), version: "2"),
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["abc":0],
+                                                    remoteFileVersion: ["abc": "2"], // *** same as remote version ***
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 0) // No changes
+                XCTAssert(journalManager.journalByteOffsets.count == 1)
+                XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
     }
     
-    // Test fetchLatestDiffsWithoutSync
+    func testSyncFetchOneUpdatedRemoteThatWeAlreadyHave() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/abc"), version: "2"),
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["abc":0],
+                                                    remoteFileVersion: ["abc": "1"],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 1) // Update "abc" since remote version is newer
+                XCTAssert(updatedFiles.first! == "abc")
+                XCTAssert(journalManager.journalByteOffsets.count == 1) // Create a new entry for it after fetching, set at byte offset 0
+                XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
+    }
     
+    func testSyncTwoRemotesWeDoNotHaveYet() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/abc"), version: "2"),
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/def"), version: "2"),
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: [:],
+                                                    remoteFileVersion: [:],
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 2) // Update "abc" and "def"
+                XCTAssert(updatedFiles.contains("abc"))
+                XCTAssert(updatedFiles.contains("def"))
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
+    }
+
+    
+    func testSyncTwoRemotesButOnlyOneIsNewer() {
+        let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
+                                                      pushLocalResponses: [.success(version: "002")],
+                                                      fetchFilesResponses: [.success(filesAndVersions: [
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/abc"), version: "2"),
+                                                        FetchedFileUrlAndVersion(url: URL(fileURLWithPath: "/def"), version: "2"),
+                                                      ])])
+        let totalDiffs: [String : Int] = [:]
+        let now = Date()
+        let mockJournalFileManager = MockJournalFileManager(totalDiffs: totalDiffs, startDate: now)
+        let storedState = JournalManagerStoredState(localIdentifier: "local",
+                                                    journalByteOffsets: ["abc":0, "def":0],
+                                                    remoteFileVersion: ["abc": "1", "def":"2"], // Already know about version "2" of def
+                                                    lastLocalVersionPushed: "")
+        
+        let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
+                                            remoteFileStore: mockRemoteFileStore,
+                                            storedState: storedState)
+
+        journalManager.syncFiles(completion: { response in
+            switch response {
+            case .success(let updatedFiles):
+                XCTAssert(updatedFiles.count == 1) // Update "abc" only
+                XCTAssert(updatedFiles.first! == "abc")
+                
+            case .failure(let reason):
+                XCTFail()
+            }
+        })
+    }
 }
