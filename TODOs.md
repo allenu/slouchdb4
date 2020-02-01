@@ -1,4 +1,11 @@
 
+- [ ] Implement PeopleApp again
+    - [x] Podify project
+
+- [x] Bleh, use expectation() and waitForExpectations() instead of holding onto journalManager as a test instance var
+
+- [ ] Build for iOS 12 or 11 (may require changes to FileHandle close() and seek() methods)
+
 - [ ] Design folder structure for everything
 
     journals/
@@ -15,7 +22,6 @@
 
     object-cache-db/
         sqlite stuff or JSON data
-
 
     - to save,
 

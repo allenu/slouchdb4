@@ -1,0 +1,26 @@
+PODS:
+  - BTree (4.1.0)
+  - SlouchDB4 (0.1.0):
+    - BTree
+  - SlouchDB4/Tests (0.1.0):
+    - BTree
+
+DEPENDENCIES:
+  - SlouchDB4 (from `../`)
+  - SlouchDB4/Tests (from `../`)
+
+SPEC REPOS:
+  https://github.com/cocoapods/specs.git:
+    - BTree
+
+EXTERNAL SOURCES:
+  SlouchDB4:
+    :path: "../"
+
+SPEC CHECKSUMS:
+  BTree: 99b99930790b88dc5e8bafbf666a5dfb8d7808b4
+  SlouchDB4: 687cff1e98d9fa18e28248060ec213bfab9d883d
+
+PODFILE CHECKSUM: 2dec563e8b2120e871e7a3f5cbfb4af329bc9670
+
+COCOAPODS: 1.7.2

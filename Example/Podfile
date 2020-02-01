@@ -1,0 +1,11 @@
+use_frameworks!
+
+target 'SlouchDB4_Example' do
+  pod 'SlouchDB4', :path => '../', :testspecs => ['Tests']
+
+  target 'SlouchDB4_Tests' do
+    inherit! :search_paths
+
+    
+  end
+end
