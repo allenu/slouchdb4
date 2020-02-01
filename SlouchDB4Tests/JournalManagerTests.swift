@@ -103,8 +103,10 @@ class MockJournalFileManager: JournalFileManaging {
 
 class JournalManagerTests: XCTestCase {
     
-    // Test fetchLatestDiffsWithoutSync
+    // Just to retain journalManager in tests
+    var journalManager: JournalManager?
 
+    // Test fetchLatestDiffsWithoutSync
     func testNoChanges() {
         let mockRemoteFileStore = MockRemoteFileStore(fetchRemoteFileVersionsResponses: [ .success(versions: [:]) ],
                                                       pushLocalResponses: [.success(version: "002")],
@@ -123,18 +125,18 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
+        self.journalManager = journalManager
         
         journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
             switch response {
             case .success(let type):
                 switch type {
-                case .partialResults(let diffs, let percent):
+                case .partialResults:
                     XCTFail()
 
                 case .results(let diffs):
                     XCTAssert(diffs.count == 0)
                     
-                    // TODO: Verify each diff to make sure we got back 5 from j1 and 10 from j2
                     callback?(true)
                 }
                 
@@ -164,17 +166,37 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
+        self.journalManager = journalManager
+        
+        // Store all diffs here after fetching. We want to inspect them all, but we're
+        // not really guaranteed the order in which we'll read them across multiple
+        // journals, so we'll need to sort them to verify the contents.
+        var allDiffs: [ObjectDiff] = []
         
         let secondRequest: () -> Void = {
             journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
                 switch response {
                 case .success(let type):
                     switch type {
-                        case .partialResults(let diffs, let percent):
+                        case .partialResults:
                         XCTFail()
                             
                     case .results(let diffs):
                         XCTAssert(diffs.count == 15)
+
+                        allDiffs.append(contentsOf: diffs)
+                        
+                        let sortedDiffs = diffs.sorted(by: { $0.identifier < $1.identifier })
+                        
+                        // Verify first 105 are from j1 and second 10 are from j2
+                        sortedDiffs.prefix(105).enumerated().forEach( { index, diff in
+                            XCTAssert(diff.identifier == "j1-\(index + 100)")
+                        })
+
+                        diffs.suffix(10).enumerated().forEach( { index, diff in
+                            XCTAssert(diff.identifier == "j2-\(index)")
+                        })
+
                     }
 
                 case .failure:
@@ -187,15 +209,17 @@ class JournalManagerTests: XCTestCase {
             switch response {
             case .success(let type):
                 switch type {
-                case .partialResults(let diffs, let percent):
+                case .partialResults(let diffs, _):
                     XCTAssert(diffs.count == journalManager.maxDiffs)
                     
-                    secondRequest()
+                    allDiffs.append(contentsOf: diffs)
                     
                     // MUST call this back so that journalManager can update its offsets
                     callback?(true)
+                    
+                    secondRequest()
 
-                case .results(let diffs):
+                case .results:
                     XCTFail()
                 }
                 
@@ -229,12 +253,13 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
+        self.journalManager = journalManager
         
         journalManager.fetchLatestDiffsWithoutSync(completion: { response, callback in
             switch response {
             case .success(let type):
                 switch type {
-                case .partialResults(let diffs, let percent):
+                case .partialResults:
                     XCTFail()
 
                 case .results(let diffs):
@@ -276,14 +301,15 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
                 XCTAssert(updatedFiles.count == 0)
                 XCTAssert(journalManager.journalByteOffsets.count == 0)
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })
@@ -306,7 +332,8 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
@@ -315,7 +342,7 @@ class JournalManagerTests: XCTestCase {
                 XCTAssert(journalManager.journalByteOffsets.count == 1) // Create a new entry for it after fetching, set at byte offset 0
                 XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })
@@ -338,7 +365,8 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
@@ -346,7 +374,7 @@ class JournalManagerTests: XCTestCase {
                 XCTAssert(journalManager.journalByteOffsets.count == 1)
                 XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })
@@ -369,7 +397,8 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
@@ -378,7 +407,7 @@ class JournalManagerTests: XCTestCase {
                 XCTAssert(journalManager.journalByteOffsets.count == 1) // Create a new entry for it after fetching, set at byte offset 0
                 XCTAssert(journalManager.journalByteOffsets["abc"] == 0)
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })
@@ -402,7 +431,8 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
@@ -410,7 +440,7 @@ class JournalManagerTests: XCTestCase {
                 XCTAssert(updatedFiles.contains("abc"))
                 XCTAssert(updatedFiles.contains("def"))
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })
@@ -435,14 +465,15 @@ class JournalManagerTests: XCTestCase {
         let journalManager = JournalManager(journalFileManager: mockJournalFileManager,
                                             remoteFileStore: mockRemoteFileStore,
                                             storedState: storedState)
-
+        self.journalManager = journalManager
+        
         journalManager.syncFiles(completion: { response in
             switch response {
             case .success(let updatedFiles):
                 XCTAssert(updatedFiles.count == 1) // Update "abc" only
                 XCTAssert(updatedFiles.first! == "abc")
                 
-            case .failure(let reason):
+            case .failure:
                 XCTFail()
             }
         })

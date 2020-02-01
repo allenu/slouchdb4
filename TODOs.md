@@ -16,6 +16,21 @@
     object-cache-db/
         sqlite stuff or JSON data
 
+
+    - to save,
+
+        - objectCache.save(to: url)
+        - objectTracker.save(to: url)
+        - journalManager.save(to: url)
+
+- [ ] More cleanup
+    - [ ] Rename ObjectCache to ObjectStore (also: InMemObjectStore)
+    - [ ] Move sortedIdentifiers (really, an index of all objects) into its own "cache"
+        - Maybe we can cache/store the index of all object identifiers to disk to reduce
+          the need for loading all of them into memory one day
+        - We can having a running count of all objects as well (including those that are
+          marked as deleted) -- could also separate them out into deleted and not deleted lists
+
 - [ ] Test JournalManager
     - [x] Break out the sync logic so that it's functional
 
@@ -32,11 +47,15 @@
 
     - [ ] Design the data used for each test
 
+        - [x] Fix unit tests:
+            - They are creating local instances of objects which are needed for testing...
+            - however their completion blocks never execute because the local instances go out of scope before test can finish
+
         - [x] SYNCING TESTS
             - need to set local versions dictionary
             - need to set remote versions dictionary
 
-        - [ ] FETCHING TESTS
+        - [x] FETCHING TESTS
             - simulate each journal's total diff count
             - each journal will return an .insert diff with identifier of "N" where N is the journal index 
               - it's true that the diffs are repeated .inserts that would never happen in real life, but we're not testing that
@@ -46,7 +65,6 @@
 
             - In fact we just need to mock out the number of diffs to return on each request. We don't even really
               need to simulate the byteOffset, but it does help with the implementation...
-
 
     - [ ] Make a list of tests that JournalManager should undergo
 
@@ -197,8 +215,12 @@
     - [ ] Implement saving
         - [ ] ObjectCache saving
             - [ ] InMemObjectCache
-                - [ ] save to a URL path a json file
-                - [ ] restore from a URL path
+                - [x] save to a URL path a json file
+                    - [x] Implement .save(to:)
+                - [x] restore from a URL path
+                    - [x] Implement .create(from:)
+                        - [x] Could also just pass params in to init() that were loaded from disk externally
+                    - [x] return nil on error
 
             - [ ] SqliteObjectCache
                 - [ ] initialize with path to sqlite database
@@ -211,9 +233,14 @@
                 - [ ] save ? 
 
         - [ ] ObjectHistoryTracker
-            - [ ] InMem version
-                - [ ] save histories to json file
-                - [ ] save list of pending updates to json file
+            - [x] InMem version
+                - [x] save histories to json file
+                    - [x] save to a URL path a json file
+                        - [x] Implement .save(to:)
+                    - [x] restore from a URL path
+                        - [x] Implement .create(from:)
+                            - [x] Could also just pass params in to init() that were loaded from disk externally
+                        - [x] return nil on error
             - [ ] SQlite version
                 - [ ] initialize database
                     - each entry is just
@@ -225,6 +252,11 @@
                       - [ ] Could store last time we processed updates and find all histories that were updated since then
                     - if a history for an object has a processing state that has nextDiff > total diffs OR is .replay,
                       add it to the list of pendingUpdates
+        - [ ] Save to journal
+            - [ ] Test that writing to journal works
+        - [ ] Load journal
+            - [ ] Test that reading a journal works
+            - [ ] Test reading all journal diffs works and eventually stops returning diffs
 
     - [x] JournalManager journals[] dictionary should be [String : UInt64] where each value
           is a byte offset into the file stream, nothing more. We should not store "cursor"
@@ -252,8 +284,8 @@
 
 
 - [ ] Make remote file sync and diff pulling work
-    - [ ] Test file sync - syncFiles(completion:)
-    - [ ] Test grabbing latest diffs from journals - fetchLatestDiffsWithoutSync
+    - [x] Test file sync - syncFiles(completion:)
+    - [x] Test grabbing latest diffs from journals - fetchLatestDiffsWithoutSync
 
     - [ ] Before pushing local file, be sure latest edits are saved to disk
 

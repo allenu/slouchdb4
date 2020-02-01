@@ -9,6 +9,8 @@
 import Foundation
 
 public enum RemoteRequestFailureReason {
+    case noNetwork
+    case noProvider
     case networkError
     case unauthorized
     case serverError

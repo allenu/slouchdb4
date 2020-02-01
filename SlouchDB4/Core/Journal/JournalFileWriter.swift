@@ -8,7 +8,7 @@
 
 import Foundation
 
-struct ObjectDiffJsonRepresentation: Codable {
+public struct ObjectDiffJsonRepresentation: Codable {
     enum ObjectDiffType: String, Codable {
         case insert
         case remove
@@ -80,30 +80,7 @@ public class JournalFileWriter: JournalWritable {
     public func append(diffs: [ObjectDiff]) {
         // Each diff goes on its own line, separated by newlines
         diffs.forEach { diff in
-            let jsonRepresentation: ObjectDiffJsonRepresentation
-            switch diff {
-            case .insert(let identifier, let timestamp, let object):
-                jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .insert,
-                                                                  timestamp: timestamp,
-                                                                  identifier: identifier,
-                                                                  type: object.type,
-                                                                  properties: object.properties)
-                
-            case .update(let identifier, let timestamp, let properties):
-                jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .update,
-                                                                  timestamp: timestamp, identifier: identifier,
-                                                                  type: nil,
-                                                                  properties: properties)
-                
-            case .remove(let identifier, let timestamp):
-                jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .remove,
-                                                                  timestamp: timestamp,
-                                                                  identifier: identifier,
-                                                                  type: nil,
-                                                                  properties: nil)
-            }
-            
-            let diffData = try! encoder.encode(jsonRepresentation)
+            let diffData = try! encoder.encode(diff.jsonRepresentation)
             fileHandle.write(diffData)
             
             let newline = "\n"

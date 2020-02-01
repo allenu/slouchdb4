@@ -60,6 +60,15 @@ class JournalManager: JournalManaging {
     
     // TODO: Make it possible to rotate through local identifiers
     var lastLocalVersionPushed: String
+    
+    var shouldSync: Bool {
+        // TODO: Logic to see if we should sync remotes
+        // Some potential rules:
+        // - we do have a remote setup properly
+        // - we have internet access
+        // - enough time has elapsed since last sync
+        return false
+    }
 
     init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStore, storedState: JournalManagerStoredState) {
         self.journalFileManager = journalFileManager
@@ -127,8 +136,15 @@ class JournalManager: JournalManaging {
                         }
                         
                     case .failure(let reason):
+                        let fetchRemoteFilesFailedReason: SyncFilesFailureReason
+                        switch reason {
+                            // TODO: convert reason to a SyncFilesFailureReason type
+                        default:
+                            fetchRemoteFilesFailedReason = .fetchRemoteFilesFailed
+                        }
+                         
                         DispatchQueue.main.async {
-                            completion(.failure(reason: .fetchRemoteFilesFailed))
+                            completion(.failure(reason: fetchRemoteFilesFailedReason))
                         }
                     }
                 }
@@ -169,6 +185,8 @@ class JournalManager: JournalManaging {
                                 doFetchRemoteFiles(fetchedVersions)
                                 
                             case .failure(let reason):
+                                // TODO: Convert reason to a more specific sync files failure reason
+                                _ = reason
                                 completion(.failure(reason: .pushFailed))
                             }
                         }
@@ -185,6 +203,8 @@ class JournalManager: JournalManaging {
                 }
                 
             case .failure(let reason):
+                // TODO: Convert reason to a more specific sync files failure reason
+                _ = reason
                 DispatchQueue.main.async {
                     completion(.failure(reason: .fetchRemoteVersionsFailed))
                 }
@@ -274,16 +294,14 @@ class JournalManager: JournalManaging {
     }
     
     func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
-        // TODO: Add logic to see if we should sync files first
-        
-        let syncFilesFirst = true
-        
-        if syncFilesFirst {
+        if shouldSync {
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
                 switch syncFilesResponse {
                 case .success(let updatedFiles):
+                    // TODO: See if really care about the updatedFiles when we sync and try to do a fetchLatestDiffsWithoutSync()
+                    _ = updatedFiles
                     strongSelf.fetchLatestDiffsWithoutSync(completion: completion)
                     
                 case .failure:

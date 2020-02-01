@@ -57,4 +57,45 @@ public enum ObjectDiff {
             return timestamp
         }
     }
+    
+    var jsonRepresentation: ObjectDiffJsonRepresentation {
+        let jsonRepresentation: ObjectDiffJsonRepresentation
+        switch self {
+        case .insert(let identifier, let timestamp, let object):
+            jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .insert,
+                                                              timestamp: timestamp,
+                                                              identifier: identifier,
+                                                              type: object.type,
+                                                              properties: object.properties)
+            
+        case .update(let identifier, let timestamp, let properties):
+            jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .update,
+                                                              timestamp: timestamp, identifier: identifier,
+                                                              type: nil,
+                                                              properties: properties)
+            
+        case .remove(let identifier, let timestamp):
+            jsonRepresentation = ObjectDiffJsonRepresentation(diffType: .remove,
+                                                              timestamp: timestamp,
+                                                              identifier: identifier,
+                                                              type: nil,
+                                                              properties: nil)
+        }
+        
+        return jsonRepresentation
+    }
+    
+    public init(from representation: ObjectDiffJsonRepresentation) {
+        switch representation.diffType {
+        case .insert:
+            self = .insert(identifier: representation.identifier, timestamp: representation.timestamp, object: DatabaseObject(type: representation.type!, properties: representation.properties!))
+            
+        case .update:
+            self = .update(identifier: representation.identifier, timestamp: representation.timestamp, properties: representation.properties!)
+            
+        case .remove:
+            self = .remove(identifier: representation.identifier, timestamp: representation.timestamp)
+        }
+        
+    }
 }

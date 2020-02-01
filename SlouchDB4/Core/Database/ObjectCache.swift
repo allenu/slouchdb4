@@ -8,7 +8,7 @@
 
 import Foundation
 
-typealias ObjectDictionary = [String : DatabaseObject]
+public typealias ObjectDictionary = [String : DatabaseObject]
 
 public protocol ObjectCache {
     func insert(identifier: String, object: DatabaseObject)
@@ -18,9 +18,38 @@ public protocol ObjectCache {
 }
 
 public class InMemObjectCache: ObjectCache {
-    private var objects: ObjectDictionary = [:]
+    private var objects: ObjectDictionary
     
-    public init() {
+    public init(objects: ObjectDictionary = [:]) {
+        self.objects = objects
+    }
+    
+    static func create(from fileUrl: URL) -> InMemObjectCache? {
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+
+        var objectCache: InMemObjectCache?
+        do {
+            let data = try Data(contentsOf: fileUrl)
+            let objects: ObjectDictionary = try decoder.decode(ObjectDictionary.self, from: data)
+            objectCache = InMemObjectCache(objects: objects)
+        } catch {
+            print("Error loading InMemObjectCache")
+        }
+        
+        return objectCache
+    }
+
+    func save(to fileUrl: URL) {
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        
+        do {
+            let data = try encoder.encode(objects)
+            try data.write(to: fileUrl)
+        } catch {
+            print("Failed to write to URL: \(error)")
+        }
     }
     
     public func insert(identifier: String, object: DatabaseObject) {
