@@ -38,6 +38,8 @@ public typealias CallbackWhenDiffsMerged = (Bool) -> Void
 public protocol JournalManaging {
     func addToLocalJournal(diff: ObjectDiff)
     func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void)
+    
+    func save(to folderUrl: URL)
 }
 
 public enum SessionSyncResponse {
@@ -48,13 +50,60 @@ public enum SessionSyncResponse {
 // Session provides a nice wrapper around the diff-based Database. It also
 // stores local changes to its own journal and keeps track of any external
 // journals.
-class Session {
+public class Session {
     let database: Database
     let journalManager: JournalManaging
     
-    init(database: Database, journalManager: JournalManaging) {
+    public init(database: Database, journalManager: JournalManaging) {
         self.journalManager = journalManager
         self.database = database
+    }
+    
+    public static func create(from folderUrl: URL) -> Session? {
+        let databaseUrl = folderUrl.appendingPathComponent("database")
+        let journalUrl = folderUrl.appendingPathComponent("journals")
+
+        // TODO: Move to Database() somehow ... but it exposes details of how
+        let objectCacheUrl = databaseUrl.appendingPathComponent("object-cache.json")
+        let objectHistoryTrackerUrl = databaseUrl.appendingPathComponent("object-history.json")
+
+        
+        if let objectCache = InMemObjectCache.create(from: objectCacheUrl),
+            let objectHistoryTracker = ObjectHistoryTracker.create(from: objectHistoryTrackerUrl) {
+
+            let sortedIdentifiersUrl = databaseUrl.appendingPathComponent("sorted-identifiers.json")
+            let decoder = JSONDecoder()
+            decoder.dateDecodingStrategy = .iso8601
+            if let data = try? Data(contentsOf: sortedIdentifiersUrl),
+                let sortedIdentifiers = try? decoder.decode([String].self, from: data) {
+                let database = Database(objectCache: objectCache, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: sortedIdentifiers)
+                
+                if let journalManager = JournalManager.create(from: journalUrl) {
+                    return Session(database: database, journalManager: journalManager)
+                }
+            }
+        }
+        
+        return nil
+    }
+    
+    public func save(to folderUrl: URL) {
+        let databaseUrl = folderUrl.appendingPathComponent("database")
+        // Create database folder, if needed
+        do {
+            try FileManager.default.createDirectory(at: databaseUrl, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("Error creating dir \(databaseUrl)")
+        }
+        database.save(to: databaseUrl)
+
+        let journalUrl = folderUrl.appendingPathComponent("journals")
+        do {
+            try FileManager.default.createDirectory(at: journalUrl, withIntermediateDirectories: true, attributes: nil)
+        } catch {
+            print("Error creating dir \(journalUrl)")
+        }
+        journalManager.save(to: journalUrl)
     }
     
     func enqueue(diffs: [ObjectDiff]) {
@@ -66,28 +115,28 @@ class Session {
     }
     
     // Local database changes
-    func insert(identifier: String, object: DatabaseObject) {
+    public func insert(identifier: String, object: DatabaseObject) {
         let now = Date()
         let diff = ObjectDiff.insert(identifier: identifier, timestamp: now, object: object)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
     }
     
-    func remove(identifier: String) {
+    public func remove(identifier: String) {
         let now = Date()
         let diff = ObjectDiff.remove(identifier: identifier, timestamp: now)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
     }
     
-    func update(identifier: String, updatedProperties: [String : JSONValue]) {
+    public func update(identifier: String, updatedProperties: [String : JSONValue]) {
         let now = Date()
         let diff = ObjectDiff.update(identifier: identifier, timestamp: now, properties: updatedProperties)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
     }
     
-    func sync(completion: @escaping (SessionSyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
+    public func sync(completion: @escaping (SessionSyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
         journalManager.fetchLatestDiffs(completion: { [weak self] response, callbackWhenDiffsMerged in
             guard let strongSelf = self else { return }
             

@@ -28,8 +28,8 @@ as the sync mechanism.
   s.source           = { :git => 'https://github.com/allenu/slouchdb4.git', :tag => s.version.to_s }
   s.social_media_url = 'https://twitter.com/ussherpress'
 
-  s.ios.deployment_target = '13.0'
-  s.osx.deployment_target = '10.14' # Untested
+  s.ios.deployment_target = '11.0'
+  s.osx.deployment_target = '10.14'
 
   s.source_files = 'SlouchDB4/Classes/**/*'
   s.swift_versions = ['5.0']

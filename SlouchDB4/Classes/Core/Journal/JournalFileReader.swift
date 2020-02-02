@@ -32,7 +32,8 @@ public class JournalFileReader: JournalReadable {
             // Seek to that position
             var seekSucceeded = false
             do {
-                try fileHandle.seek(toOffset: byteOffset)
+                try fileHandle.seek(toFileOffset: byteOffset)
+//                try fileHandle.seek(toOffset: byteOffset)
                 self.byteOffset = byteOffset
                 seekSucceeded = true
             } catch {

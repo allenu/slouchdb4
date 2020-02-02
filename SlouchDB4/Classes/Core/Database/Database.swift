@@ -37,7 +37,7 @@ struct DatabaseObjectAndDiffs {
 // NOTE: This is a diff-based database. Requests to insert, update, remove must be done via ObjectDiffs provided
 // to enqueue(). The changes do not take effect until mergeEnqueued() is called. This is to allow bulk processing
 // of multiple diffs from external sources.
-class Database {
+public class Database {
     public static let maxFetchCount: Int = 1000
     
     // WIP: In-mem sorted list of all item indices
@@ -47,10 +47,24 @@ class Database {
     let objectHistoryTracker: ObjectHistoryTracker
     let objectCache: ObjectCache
     
-    public init(objectCache: ObjectCache, objectHistoryTracker: ObjectHistoryTracker, sortedIdentifiers: SortedIdentifiers = SortedIdentifiers()) {
+    public init(objectCache: ObjectCache, objectHistoryTracker: ObjectHistoryTracker, sortedIdentifiers: [String]) {
         self.objectCache = objectCache
         self.objectHistoryTracker = objectHistoryTracker
-        self.sortedIdentifiers = sortedIdentifiers
+        self.sortedIdentifiers = SortedIdentifiers(sortedIdentifiers)
+    }
+    
+    public func save(to folderUrl: URL) {
+        let objectCacheUrl = folderUrl.appendingPathComponent("object-cache.json")
+        objectCache.save(to: objectCacheUrl)
+        
+        let objectHistoryTrackerUrl = folderUrl.appendingPathComponent("object-history.json")
+        objectHistoryTracker.save(to: objectHistoryTrackerUrl)
+        
+        let sortedIdentifiersUrl = folderUrl.appendingPathComponent("sorted-identifiers.json")
+        let encoder = JSONEncoder()
+        encoder.dateEncodingStrategy = .iso8601
+        let data = try! encoder.encode(Array(sortedIdentifiers))
+        try! data.write(to: sortedIdentifiersUrl)
     }
     
     func enqueue(diffs: [ObjectDiff]) {

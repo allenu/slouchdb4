@@ -16,7 +16,7 @@ enum ObjectHistoryProcessingState {
 
 typealias ObjectHistory =  [ObjectDiff]
 
-class ObjectHistoryState {
+public class ObjectHistoryState {
     var processingState: ObjectHistoryProcessingState
     var diffs: [ObjectDiff]
     
@@ -60,7 +60,7 @@ public class ObjectHistoryTracker {
     // Cache which objects need update so that process() is faster.
     var pendingUpdates: Set<String>
     
-    init(histories: [String : ObjectHistoryState] = [:], pendingUpdates: [String] = []) {
+    public init(histories: [String : ObjectHistoryState] = [:], pendingUpdates: [String] = []) {
         self.histories = histories
         self.pendingUpdates = Set<String>(pendingUpdates)
     }

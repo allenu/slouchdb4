@@ -8,7 +8,9 @@
 
 import Foundation
 
-protocol JournalFileManaging {
+public protocol JournalFileManaging {
+    var folderUrl: URL? { get set }
+    
     func writeLocal(diffs: [ObjectDiff], to identifier: String)
     
     // Get the url for a local journal file (searches only in /local/)
@@ -21,11 +23,21 @@ protocol JournalFileManaging {
     func readNextDiffs(from identifier: String, byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult
 }
 
-struct JournalManagerStoredState: Codable {
+public struct JournalManagerStoredState: Codable {
     let localIdentifier: String
     let journalByteOffsets: [String : UInt64]
     let remoteFileVersion: [String : String]
     let lastLocalVersionPushed: String
+    
+    public init(localIdentifier: String,
+                journalByteOffsets: [String : UInt64],
+                remoteFileVersion: [String : String],
+                lastLocalVersionPushed: String) {
+        self.localIdentifier = localIdentifier
+        self.journalByteOffsets = journalByteOffsets
+        self.remoteFileVersion = remoteFileVersion
+        self.lastLocalVersionPushed = lastLocalVersionPushed
+    }
 }
 
 // Fetch all those files that differ from local version, excluding a known list.
@@ -42,10 +54,10 @@ public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [St
     return filesToFetch
 }
 
-class JournalManager: JournalManaging {
+public class JournalManager: JournalManaging {
     let maxDiffs: Int = 100
     
-    let remoteFileStore: RemoteFileStore
+    let remoteFileStore: RemoteFileStoring
     var journalFileManager: JournalFileManaging
 
     // --------------------------------------
@@ -70,7 +82,7 @@ class JournalManager: JournalManaging {
         return false
     }
 
-    init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStore, storedState: JournalManagerStoredState) {
+    public init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStoring, storedState: JournalManagerStoredState) {
         self.journalFileManager = journalFileManager
         self.remoteFileStore = remoteFileStore
 
@@ -80,11 +92,46 @@ class JournalManager: JournalManaging {
         self.remoteFileVersion = storedState.remoteFileVersion
     }
     
-    func save() {
-        // Save data to StoredState
+    public static func create(from folderUrl: URL) -> JournalManager? {
+        let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
+
+        let decoder = JSONDecoder()
+        decoder.dateDecodingStrategy = .iso8601
+        
+        if let data = try? Data(contentsOf: fileUrl),
+            let storedState = try? decoder.decode(JournalManagerStoredState.self, from: data) {
+            let journalManager = JournalManager(journalFileManager: JournalFileManager(folderUrl: folderUrl), remoteFileStore: RemoteFileStore(), storedState: storedState)
+            
+            return journalManager
+        }
+        
+        return nil
     }
     
-    func addToLocalJournal(diff: ObjectDiff) {
+    public func save(to folderUrl: URL) {
+        // Save data to StoredState
+        
+        // Make note of folder now that we're saving
+        self.journalFileManager.folderUrl = folderUrl
+        
+        let storedState = JournalManagerStoredState(localIdentifier: localIdentifier,
+                                                    journalByteOffsets: journalByteOffsets,
+                                                    remoteFileVersion: remoteFileVersion,
+                                                    lastLocalVersionPushed: lastLocalVersionPushed)
+        let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
+        do {
+            let encoder = JSONEncoder()
+            encoder.dateEncodingStrategy = .iso8601
+            
+            let data = try encoder.encode(storedState)
+            try data.write(to: fileUrl)
+        } catch {
+            print("Error saving to \(fileUrl)")
+        }
+        
+    }
+    
+    public func addToLocalJournal(diff: ObjectDiff) {
         journalFileManager.writeLocal(diffs: [diff], to: localIdentifier)
     }
     
@@ -299,7 +346,7 @@ class JournalManager: JournalManaging {
         }
     }
     
-    func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
+    public func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
         if shouldSync {
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }

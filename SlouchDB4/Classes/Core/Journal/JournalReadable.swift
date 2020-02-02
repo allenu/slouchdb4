@@ -17,6 +17,11 @@ public struct JournalCursor: Codable {
 public struct JournalReadResult {
     public let diffs: [ObjectDiff]
     public let byteOffset: UInt64
+    
+    public init(diffs: [ObjectDiff], byteOffset: UInt64) {
+        self.diffs = diffs
+        self.byteOffset = byteOffset
+    }
 }
 
 public protocol JournalReadable {

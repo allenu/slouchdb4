@@ -26,7 +26,7 @@ class ItemProvider<T> {
     }
 }
 
-class MockRemoteFileStore: RemoteFileStore {
+class MockRemoteFileStore: RemoteFileStoring {
     let fetchRemoteFileVersionsResponsesProvider: ItemProvider<FetchRemoteFileVersionsResponse>
     let pushLocalResponsesProvider: ItemProvider<PushLocalResponse>
     let fetchFilesResponsesProvider: ItemProvider<FetchFilesResponse>
