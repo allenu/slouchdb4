@@ -9,3 +9,7 @@ target 'SlouchDB4_Example' do
     
   end
 end
+target 'PeopleApp' do
+    pod 'SlouchDB4', :path => '../'
+end
+

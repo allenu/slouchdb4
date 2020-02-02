@@ -15,6 +15,8 @@ public protocol ObjectCache {
     func replace(identifier: String, object: DatabaseObject)
     func fetch(identifier: String) -> DatabaseObject?
     func remove(identifier: String)
+    
+    func save(to fileUrl: URL)
 }
 
 public class InMemObjectCache: ObjectCache {
@@ -24,7 +26,7 @@ public class InMemObjectCache: ObjectCache {
         self.objects = objects
     }
     
-    static func create(from fileUrl: URL) -> InMemObjectCache? {
+    public static func create(from fileUrl: URL) -> InMemObjectCache? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
@@ -40,7 +42,7 @@ public class InMemObjectCache: ObjectCache {
         return objectCache
     }
 
-    func save(to fileUrl: URL) {
+    public func save(to fileUrl: URL) {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         

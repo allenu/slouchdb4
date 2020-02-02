@@ -29,4 +29,8 @@ public class JournalDataReader: JournalReadable {
         
         return JournalReadResult(diffs: diffs, byteOffset: self.byteOffset)
     }
+    
+    public func close() {
+        
+    }
 }

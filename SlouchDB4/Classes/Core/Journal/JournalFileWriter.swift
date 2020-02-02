@@ -27,6 +27,8 @@ public class JournalFileWriter: JournalWritable {
     public var byteOffset: UInt64
     var isClosed: Bool = false
     
+    var url: URL
+    
     var encoder: JSONEncoder = {
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -34,6 +36,8 @@ public class JournalFileWriter: JournalWritable {
     }()
     
     public init(url: URL) throws {
+        self.url = url
+        
         do {
             let fileHandle = try FileHandle(forWritingTo: url)
             self.fileHandle = fileHandle
@@ -58,23 +62,28 @@ public class JournalFileWriter: JournalWritable {
     
     deinit {
         if !isClosed {
+            fileHandle.closeFile()
+            /*
             do {
                 try fileHandle.close()
             } catch {
                 print("Error closing file: \(error)")
             }
+ */
         }
     }
     
     public func close() {
         guard !isClosed else { return }
         
-        do {
-            try fileHandle.close()
-            isClosed = true
-        } catch {
-            print("Error closing file \(error)")
-        }
+        fileHandle.closeFile()
+
+//        do {
+//            try fileHandle.close()
+//            isClosed = true
+//        } catch {
+//            print("Error closing file \(error)")
+//        }
     }
     
     public func append(diffs: [ObjectDiff]) {

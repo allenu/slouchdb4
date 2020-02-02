@@ -1,21 +1,170 @@
 
-- [ ] Implement PeopleApp again
+- [ ] Test large databases
+    - [ ] Modify PeopleApp to search name
+        - add search field
+        - as you type, redoes search query
+    - [ ] Create test journal that has 10,000 entries
+        - paginated list of entries
+        - search by name fragment as you type
+        - search is paginated
+        - test searching for a string that does not match anything in the database, then
+          changing the query to something that does
+          - should maybe cancel the original search if it's still ongoing
+
+    - [ ] Create test journal that has 100,000 entries
+    - [ ] Create test journal that has 1,000,000 entries
+
+- [ ] Create utility app that can load any arbitrary database
+    - has search field where you can type fieldname:value ??
+    - has a list of N entries (paged and loaded in memory on the fly)
+
+- [ ] Figure out background execution policy
+    - Should RemoteFileStore take care of issuing code in background?
+    - Or should they assume they will already be in a background thread and let JournalManager do that?
+      - If so, this gives more freedom to scheduling to JournalManager
+
+    - [ ] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
+
+    - [ ] Should fetches be cancellable (if they take too long)
+        - Should they quit after N entries?
+        - Maybe have a cursor that lets you re-issue the search starting from a specific index?
+
+- [-] Make RemoteFileStoring.push(localFile: URL) be push(identifier:) instead
+    => Can't really do this since RemoteFileStoring doesn't keep track of file locations (especially now
+       that we have working folder and storage folder)
+
+- [ ] Test: RemoteFileStore.fetchFiles() returns an incomplete set of files and versions
+    - Should still work
+    - Files missing are just not updated
+
+- [ ] Error-recovery
+    - [ ] BUG: Couldn't parse some of hte journal data. Seems like we were at the wrong offset in the file ?
+        -> Yes, we likely had a bad journal file earlier that was out of date due to a bug. When we replaced
+           it, the byte index was then wrong.
+
+           We should make it so if a journal disappears, we should remove it from our object state history.
+           This way we can easily recover by deleting the journal file.
+
+    - [ ] TEST resiliency of file reader:
+        - if we encounter data before a newline that is just garbage, make sure we skip it and recover enough
+          to read the next proper line of data
+
+- [x] Feature: Implement Working Folder and Storage Folder
+    - [x] JournalFileManager should have optional storageFolderUrl:
+    - [x] FileSystemStore shouldn't even have a rootFolderUrl as it's not even used!
+    - [x] Test save-as, which should save to new folder
+    - [x] Re-enable autosave in all situations
+
+    - [x] BUG: If you add local diffs, save, then close
+          Then re-open and add more local diffs, the local diffs overwrite the old ones entirely.
+          What we need to do when opening an existing file is COPY the local journals to the working storage FIRST.
+
+    - [x] BUG: Open an existing file, delete some entries, sync, open another existing file and sync. you won't
+          pick up the changes. :(
+    - [x] BUG: ByteOffsets are going totally wrong... asserts hit all the time now :(
+    - [x] BUG: I still noticed that sometimes my journal changes didn't get pushed up to the remote
+    - [x] BUG: we can still get into a scenario where we are referencing a temporary folder used by NSDocument to
+          save atomically to.
+
+          The fix is to just not save the storageFolderUrl in JournalFileManager.save(to:).
+          Only rely on the storageFolderUrl if it is provided on creation. Otherwise, it could
+          be anything.
+    - [x] BUG: Still have crashes where we try to open a journal in the working folder but it doesn't exist there yet !
+          -> is it because the file copy operation doesn't finish in time and we have a race condition?
+
+          - [ ] One graceful way to fix it is if journal file is missing, "forget" about it. Remove it from
+                our indexes. Hopefully next time we sync, we try to pull it down correctly.
+
+- [x] BUG: Create two files and make edits and sync back and forth between them
+    - eventually if you make edits in one file, it will push (you can check the destination folder to verify)
+    - however, if you sync the other file, it will pull (I think) but it does not merge and update :(
+
+    -> Fixed. Due to our JournalFileManager not re-opening the local journal file after a pull.
+
+- [x] BUG: I noticed a previously-saved file would not sync even though new journals were available.
+    => Likely due to the saving shenanigans. When file is saved at the moment, all bets are off...
+
+- [x] Update Document model for PeopleApp demo
+    - when making local edits, journal diff updates should go to temporary file target
+    - when saving, copy the new edits from the temporary file on top of the existing journal,
+      then empty out the temporary file target so we are appending from a zero byte file
+    - on next save, do the same thing
+
+    - when pulling files from remotes, also save to temporary file folder
+    - when saving, copy those files to the save location
+
+    - bottom line:
+      - never edit files directly in the save URL unless you are in the middle of a write(to:) request
+
+    - [x] When Document created, immediately create a temp folder
+        - copy all locals to it
+        - copy all remotes to it
+
+- [x] MAJOR BUG in PeopleApp:
+    - [x] Due to autosaving, the location of the file URL changes... not great for our test app which is based on a folder idea
+    - [x] Rewrite it as a non-Document-based app. Just a window-based app where you specify the URL and it works off that
+          - 
+- [x] Bug: if you re-open an existing .People file and hit 'sync', it won't be able to copy over the
+      journal to the destination if it's already there.
+      - [x] Need to handle overwriting an existing file
+      - [x] Make sure file is overwritten for push and pull
+
+- [x] Bug: 
+    - create new file
+    - select sync folder and tap Sync
+    - modify an entry
+    - tap Sync again
+    - find the journal file and see the diff you just created by modifying
+    - modify another entry
+    - tap Sync again
+    - YOUR EDIT DOES NOT SHOW UP
+
+    - [x] Part of it is due to a "push" not overwriting files
+    - [x] Also due to "lastLocalVersionPushed" not being a good mechanism
+        - if there any local changes, "lastLocalVersionPushed" doesn't change, so as far as we're concerned,
+          we don't need to push
+        - [x] We should have a "isDirty" flag to indicate that our local journal has been updated since the
+              last push and that we should push to update the remote
+        - [x] We should store the isDirty in the stored state
+
+- [x] Major design bug: when you call fetch() -> FetchResult, you get back a list of objects, but not their
+      identifiers!!
+
+      We should return [(String, DatabaseObject)]
+
+- [x] Implement file-based Remote Store
+
+- [x] Manage two types of scenarios for Document:
+    - [x] New file which has not yet been saved
+        - [x] Open temp file and write stream to it
+        - [x] When file is saved, close file and copy to permanent location
+        - [x] Open new file as stream
+    - [x] Opening existing file
+        - [x] Open remote file as a stream
+
+- [x] Implement PeopleApp again
+    - [x] Build for iOS 12 or 11 (may require changes to FileHandle close() and seek() methods)
+    - [x] Build for macOS 10.14 and earlier (close() and seek() issues here too)
     - [x] Podify project
+    - [-] Handle delete key on an entry
 
 - [x] Bleh, use expectation() and waitForExpectations() instead of holding onto journalManager as a test instance var
 
-- [ ] Build for iOS 12 or 11 (may require changes to FileHandle close() and seek() methods)
+- [ ] Move object-cache.json info to InMemObjectCache
+- [ ] Move object-tracker.json info to ObjectHistoryTracker
 
-- [ ] Design folder structure for everything
+    - [ ] Consider breaking subclassing Session to handle file-saving stuff:
+        - FilebasedSession
 
-    journals/
-        remotes/
-        locals/
-        manager/
-            JSON data for stored state of journal manager
-            - journal byte offsets
-            - local identifier (s)
-            - remote file versions
+- [x] Design folder structure for everything
+
+    remotes/
+    locals/
+    journal-state.json
+        JSON data for stored state of journal manager
+        - journal byte offsets
+        - local identifier (s)
+        - remote file versions
 
     object-history-db/
         sqlite stuff or JSON data
@@ -228,16 +377,6 @@
                         - [x] Could also just pass params in to init() that were loaded from disk externally
                     - [x] return nil on error
 
-            - [ ] SqliteObjectCache
-                - [ ] initialize with path to sqlite database
-                    - create it if necessary
-                        - each entry will just be
-                            - identifier (hopefully we can use our own UUID)
-                            - type column
-                            - timestamp
-                            - properties JSON payload
-                - [ ] save ? 
-
         - [ ] ObjectHistoryTracker
             - [x] InMem version
                 - [x] save histories to json file
@@ -247,22 +386,12 @@
                         - [x] Implement .create(from:)
                             - [x] Could also just pass params in to init() that were loaded from disk externally
                         - [x] return nil on error
-            - [ ] SQlite version
-                - [ ] initialize database
-                    - each entry is just
-                        - processing state
-                        - next diff index to process (only if non-replay style, otherwise will be 0)
-                        - diffs as a JSON array
-                - [ ] generate pending from scratch when loading file ?? might be inefficient to go
-                      through every object EVER
-                      - [ ] Could store last time we processed updates and find all histories that were updated since then
-                    - if a history for an object has a processing state that has nextDiff > total diffs OR is .replay,
-                      add it to the list of pendingUpdates
-        - [ ] Save to journal
-            - [ ] Test that writing to journal works
-        - [ ] Load journal
-            - [ ] Test that reading a journal works
-            - [ ] Test reading all journal diffs works and eventually stops returning diffs
+
+        - [x] Save to journal
+            - [x] Test that writing to journal works
+        - [x] Load journal
+            - [x] Test that reading a journal works
+            - [x] Test reading all journal diffs works and eventually stops returning diffs
 
     - [x] JournalManager journals[] dictionary should be [String : UInt64] where each value
           is a byte offset into the file stream, nothing more. We should not store "cursor"
@@ -277,9 +406,9 @@
             - next byte offset
             - (maybe EOF data)
 
-    - [ ] Implement the *real* JournalFileManager
-        - [ ] Should "own" journal readers which it routes to via readNextDiffs()
-        - [ ] Implementation details:
+    - [x] Implement the *real* JournalFileManager
+        - [x] Should "own" journal readers which it routes to via readNextDiffs()
+        - [x] Implementation details:
             - local journals in local/
             - remote journals for syncing in remote/
 
@@ -288,17 +417,16 @@
 
     - [x] Update JournalManagerStoredState so that it doesn't have JournalReaderState, but String : UInt64 too
 
-
-- [ ] Make remote file sync and diff pulling work
+- [x] Make remote file sync and diff pulling work
     - [x] Test file sync - syncFiles(completion:)
     - [x] Test grabbing latest diffs from journals - fetchLatestDiffsWithoutSync
 
-    - [ ] Before pushing local file, be sure latest edits are saved to disk
+    - [x] Before pushing local file, be sure latest edits are saved to disk
 
     - [ ] Remote file sync
         - [x] Push local journal only if remote is old
         - [ ] Fail early if local push fails
-        - [ ] Fetch all remotes that
+        - [x] Fetch all remotes that
             - are newer than what we have
             - don't exist locally
 
@@ -315,7 +443,7 @@
               - [ ] Move remote file sync to its own method with a completion callback
                 - On success (or failure), we execute the "get latest diffs"
 
-        - [ ] Write get latest diffs algorithm:
+        - [x] Write get latest diffs algorithm:
 
             - while num diffs collected < MaxDiffsPerTransaction
                 - fetch N diffs from next journal that has some

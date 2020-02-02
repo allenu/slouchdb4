@@ -34,133 +34,85 @@
             endingLineNumber = "503"
             landmarkName = "testSyncTwoRemotesButOnlyOneIsNewer()"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "F57625FA-EEFB-40F0-B2CB-6AC0A6649303 - 98e7f3aa07b7e59e"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "SlouchDB4_Unit_Tests.JournalManagerTests.testSyncTwoRemotesButOnlyOneIsNewer() -&gt; ()"
-                  moduleName = "SlouchDB4-Unit-Tests"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/allenu/Development/mac/SlouchDB4/SlouchDB4/Tests/JournalManagerTests.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "504"
-                  endingLineNumber = "504"
-                  offsetFromSymbolStart = "2373">
-               </Location>
-               <Location
-                  uuid = "F57625FA-EEFB-40F0-B2CB-6AC0A6649303 - f9eb9d71451d94fd"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "closure #1 (SlouchDB4.SyncFilesResponse) -&gt; () in SlouchDB4_Unit_Tests.JournalManagerTests.testSyncTwoRemotesButOnlyOneIsNewer() -&gt; ()"
-                  moduleName = "SlouchDB4-Unit-Tests"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/allenu/Development/mac/SlouchDB4/SlouchDB4/Tests/JournalManagerTests.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "506"
-                  endingLineNumber = "506"
-                  offsetFromSymbolStart = "135">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "906D70E1-5F7F-45A9-A5D8-D08095D169B9"
+            uuid = "2AE30E1A-B170-45C7-B71A-54F282907897"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "../SlouchDB4/Classes/Core/JournalManager.swift"
+            filePath = "../SlouchDB4/Classes/Core/JournalFileManager.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "93"
-            endingLineNumber = "93"
-            landmarkName = "syncFiles(completion:)"
+            startingLineNumber = "121"
+            endingLineNumber = "121"
+            landmarkName = "save(to:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "DA9FE370-E160-492F-A571-27C3C114732A"
+            uuid = "B3365936-C6AD-43C3-81A9-ADC821986632"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "../SlouchDB4/Classes/Core/JournalManager.swift"
+            filePath = "../SlouchDB4/Classes/Core/JournalFileManager.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "100"
-            endingLineNumber = "100"
-            landmarkName = "syncFiles(completion:)"
+            startingLineNumber = "132"
+            endingLineNumber = "132"
+            landmarkName = "save(to:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "64AA1E9D-3A59-435C-BA4A-1ACED9728522"
+            uuid = "69453160-EF0F-4D0B-B6BC-92E5362D9C90"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "../SlouchDB4/Classes/Core/JournalManager.swift"
+            filePath = "../SlouchDB4/Classes/Core/JournalFileManager.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "104"
-            endingLineNumber = "104"
-            landmarkName = "syncFiles(completion:)"
+            startingLineNumber = "263"
+            endingLineNumber = "263"
+            landmarkName = "readNextDiffs(from:byteOffset:maxDiffs:)"
             landmarkType = "7">
-            <Locations>
-               <Location
-                  uuid = "64AA1E9D-3A59-435C-BA4A-1ACED9728522 - 1d23c2616fa36128"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "closure #1 (SlouchDB4.FetchFilesResponse) -&gt; () in closure #1 (Swift.Dictionary&lt;Swift.String, Swift.String&gt;) -&gt; () in SlouchDB4.JournalManager.syncFiles(completion: (SlouchDB4.SyncFilesResponse) -&gt; ()) -&gt; ()"
-                  moduleName = "SlouchDB4"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/allenu/Development/mac/SlouchDB4/SlouchDB4/Classes/Core/JournalManager.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "105"
-                  endingLineNumber = "105"
-                  offsetFromSymbolStart = "536">
-               </Location>
-               <Location
-                  uuid = "64AA1E9D-3A59-435C-BA4A-1ACED9728522 - 1d23c2616fa36128"
-                  shouldBeEnabled = "Yes"
-                  ignoreCount = "0"
-                  continueAfterRunningActions = "No"
-                  symbolName = "closure #1 (SlouchDB4.FetchFilesResponse) -&gt; () in closure #1 (Swift.Dictionary&lt;Swift.String, Swift.String&gt;) -&gt; () in SlouchDB4.JournalManager.syncFiles(completion: (SlouchDB4.SyncFilesResponse) -&gt; ()) -&gt; ()"
-                  moduleName = "SlouchDB4"
-                  usesParentBreakpointCondition = "Yes"
-                  urlString = "file:///Users/allenu/Development/mac/SlouchDB4/SlouchDB4/Classes/Core/JournalManager.swift"
-                  startingColumnNumber = "9223372036854775807"
-                  endingColumnNumber = "9223372036854775807"
-                  startingLineNumber = "105"
-                  endingLineNumber = "105"
-                  offsetFromSymbolStart = "565">
-               </Location>
-            </Locations>
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
          BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
          <BreakpointContent
-            uuid = "16B04B53-1300-48A8-9361-ED8269DA62AA"
+            uuid = "3467FEA3-ADA2-45FF-846C-D1185076EBB0"
             shouldBeEnabled = "Yes"
             ignoreCount = "0"
             continueAfterRunningActions = "No"
-            filePath = "../SlouchDB4/Classes/Core/JournalManager.swift"
+            filePath = "../SlouchDB4/Classes/Core/JournalFileManager.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "102"
-            endingLineNumber = "102"
-            landmarkName = "syncFiles(completion:)"
+            startingLineNumber = "266"
+            endingLineNumber = "266"
+            landmarkName = "readNextDiffs(from:byteOffset:maxDiffs:)"
+            landmarkType = "7">
+         </BreakpointContent>
+      </BreakpointProxy>
+      <BreakpointProxy
+         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
+         <BreakpointContent
+            uuid = "6BF78BC9-8666-4196-830E-4705ADE41C87"
+            shouldBeEnabled = "Yes"
+            ignoreCount = "0"
+            continueAfterRunningActions = "No"
+            filePath = "../SlouchDB4/Classes/Core/JournalFileManager.swift"
+            startingColumnNumber = "9223372036854775807"
+            endingColumnNumber = "9223372036854775807"
+            startingLineNumber = "277"
+            endingLineNumber = "277"
+            landmarkName = "readNextDiffs(from:byteOffset:maxDiffs:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

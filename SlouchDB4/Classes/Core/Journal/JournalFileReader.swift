@@ -10,7 +10,7 @@ import Foundation
 
 public class JournalFileReader: JournalReadable {
     static let readBufferSize: Int = 512 // 64*1024 // 64k read buffer
-    static let lowBufferSize: Int = 4*1024  // If we have under 4k of bytes, fetch to fill it up
+    static let lowBufferSize: Int = 256 // 4*1024  // If we have under 4k of bytes, fetch to fill it up
     // NOTE: The assumption is that 4k is big enough to hold one diff. If not, then we have a problem
     // because we may never find a newline in the current buffer.
     
@@ -27,12 +27,17 @@ public class JournalFileReader: JournalReadable {
         byteOffset = 0
     }
     
+    public func close() {
+        fileHandle.closeFile()
+    }
+    
     public func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
         if self.byteOffset != byteOffset {
             // Seek to that position
             var seekSucceeded = false
             do {
-                try fileHandle.seek(toOffset: byteOffset)
+                try fileHandle.seek(toFileOffset: byteOffset)
+//                try fileHandle.seek(toOffset: byteOffset)
                 self.byteOffset = byteOffset
                 seekSucceeded = true
             } catch {
@@ -50,33 +55,35 @@ public class JournalFileReader: JournalReadable {
             }
         }
         
-        // Read data in chunks of 16k and process it until we run out of bytes to read OR
-        if !fileDataEOF {
-            if let fileData = fileData {
-                // See if we're low on data. If so, fetch to fill up our chunk with more.
-                if fileData.count < JournalFileReader.lowBufferSize {
-                    let newData = fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
-                    
-                    if newData.count == 0 {
-                        // No more data to read
-                        fileDataEOF = true
+        let readChunksIfNeeded = {
+            // Read to fill up to 16k. Only read if on the low end.
+            if !self.fileDataEOF {
+                if let fileData = self.fileData {
+                    // See if we're low on data. If so, fetch to fill up our chunk with more.
+                    if fileData.count < JournalFileReader.lowBufferSize {
+                        let newData = self.fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
+                        
+                        if newData.count == 0 {
+                            // No more data to read
+                            self.fileDataEOF = true
+                        }
+
+                        // Combine data
+                        self.fileData?.append(newData)
+                    } else {
+                        // Good enough size...
                     }
-
-                    // Combine data
-                    self.fileData?.append(newData)
                 } else {
-                    // Good enough size...
-                }
-            } else {
-                // If fileData is nil, means no data yet, so load it initially
+                    // If fileData is nil, means no data yet, so load it initially
 
-                // Read readBufferSize
-                let data = fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
-                self.fileData = data
-                
-                if data.count == 0 {
-                    // No more data to read
-                    fileDataEOF = true
+                    // Read readBufferSize
+                    let data = self.fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
+                    self.fileData = data
+                    
+                    if data.count == 0 {
+                        // No more data to read
+                        self.fileDataEOF = true
+                    }
                 }
             }
         }
@@ -85,16 +92,26 @@ public class JournalFileReader: JournalReadable {
 
         var encounteredEndOfFile: Bool = false
         
-        while let fileData = fileData, !encounteredEndOfFile && diffs.count < maxDiffs {
+        readChunksIfNeeded()
+        while let fileData = self.fileData, !encounteredEndOfFile && diffs.count < maxDiffs {
             if fileData.count == 0 {
                 encounteredEndOfFile = true
                 break
             }
             
             if let newlineIndex = fileData.firstIndex(of: 0x0a) {
+                assert(newlineIndex < fileData.count)
+                
                 let jsonDiffData = fileData.prefix(newlineIndex)
+                
+                // Copy remaining bytes into new buffer. Need to do this since firstIndex() above doesn't
+                // take into account subsequences from firstIndex/dropFirst operations and so messes up
+                // indexing.
                 let dataWithJsonDiffRemoved = fileData.dropFirst(newlineIndex + 1) // skip newline as well
-                self.fileData = dataWithJsonDiffRemoved
+                let newBufferSize = dataWithJsonDiffRemoved.count
+                dataWithJsonDiffRemoved.withUnsafeBytes( { bytes in
+                    self.fileData = Data(bytes: bytes, count: newBufferSize)
+                })
                 
                 // Update byte offset
                 self.byteOffset = self.byteOffset + UInt64(newlineIndex + 1) // Include newline in total bytes processed for this line
@@ -152,10 +169,11 @@ public class JournalFileReader: JournalReadable {
                     }
                 }
             } else {
-                // Error. Can't process buffer. Assume end of file.
-                assertionFailure()
-                encounteredEndOfFile = true
+                // Can't process buffer. May need to read more chunks.
+                print("Couldn't process. May need more chunks")
             }
+
+            readChunksIfNeeded()
         }
         
         // No more data, so return what we have
