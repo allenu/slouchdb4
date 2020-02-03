@@ -1,25 +1,60 @@
 
+- [ ] MAJOR BUG in PeopleApp:
+    - [ ] Due to autosaving, the location of the file URL changes... not great for our test app which is based on a folder idea
+    - [ ] Rewrite it as a non-Document-based app. Just a window-based app where you specify the URL and it works off that
+          - 
+
+- [x] Major design bug: when you call fetch() -> FetchResult, you get back a list of objects, but not their
+      identifiers!!
+
+      We should return [(String, DatabaseObject)]
+
+- [ ] Implement file-based Remote Store
+
+- [ ] Manage two types of scenarios for Document:
+    - [ ] New file which has not yet been saved
+        - [ ] Open temp file and write stream to it
+        - [ ] When file is saved, close file and copy to permanent location
+        - [ ] Open new file as stream
+    - [ ] Opening existing file
+        - [ ] Open remote file as a stream
+
+- [ ] Figure out background execution policy
+    - Should RemoteFileStore take care of issuing code in background?
+    - Or should they assume they will already be in a background thread and let JournalManager do that?
+      - If so, this gives more freedom to scheduling to JournalManager
+
+    - [ ] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
+
+- [ ] Make RemoteFileStoring.push(localFile: URL) be push(identifier:) instead
+
+- [ ] Test: RemoteFileStore.fetchFiles() returns an incomplete set of files and versions
+    - Should still work
+    - Files missing are just not updated
+
 - [ ] Implement PeopleApp again
-    - [ ] Build for iOS 12 or 11 (may require changes to FileHandle close() and seek() methods)
+    - [x] Build for iOS 12 or 11 (may require changes to FileHandle close() and seek() methods)
     - [x] Build for macOS 10.14 and earlier (close() and seek() issues here too)
     - [x] Podify project
+    - [ ] Handle delete key on an entry
 
 - [x] Bleh, use expectation() and waitForExpectations() instead of holding onto journalManager as a test instance var
 
 - [ ] Move object-cache.json info to InMemObjectCache
 - [ ] Move object-tracker.json info to ObjectHistoryTracker
 
+    - [ ] Consider breaking subclassing Session to handle file-saving stuff:
+        - FilebasedSession
 
 - [ ] Design folder structure for everything
 
-    journals/
-        remotes/
-        locals/
-        manager/
-            JSON data for stored state of journal manager
-            - journal byte offsets
-            - local identifier (s)
-            - remote file versions
+    remotes/
+    locals/
+    journal-state.json
+        JSON data for stored state of journal manager
+        - journal byte offsets
+        - local identifier (s)
+        - remote file versions
 
     object-history-db/
         sqlite stuff or JSON data

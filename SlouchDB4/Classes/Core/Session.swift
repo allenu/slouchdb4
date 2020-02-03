@@ -59,26 +59,22 @@ public class Session {
         self.database = database
     }
     
-    public static func create(from folderUrl: URL) -> Session? {
-        let databaseUrl = folderUrl.appendingPathComponent("database")
-        let journalUrl = folderUrl.appendingPathComponent("journals")
-
+    public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> Session? {
         // TODO: Move to Database() somehow ... but it exposes details of how
-        let objectCacheUrl = databaseUrl.appendingPathComponent("object-cache.json")
-        let objectHistoryTrackerUrl = databaseUrl.appendingPathComponent("object-history.json")
-
+        let objectCacheUrl = folderUrl.appendingPathComponent("object-cache.json")
+        let objectHistoryTrackerUrl = folderUrl.appendingPathComponent("object-history.json")
         
         if let objectCache = InMemObjectCache.create(from: objectCacheUrl),
             let objectHistoryTracker = ObjectHistoryTracker.create(from: objectHistoryTrackerUrl) {
 
-            let sortedIdentifiersUrl = databaseUrl.appendingPathComponent("sorted-identifiers.json")
+            let sortedIdentifiersUrl = folderUrl.appendingPathComponent("sorted-identifiers.json")
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
             if let data = try? Data(contentsOf: sortedIdentifiersUrl),
                 let sortedIdentifiers = try? decoder.decode([String].self, from: data) {
                 let database = Database(objectCache: objectCache, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: sortedIdentifiers)
                 
-                if let journalManager = JournalManager.create(from: journalUrl) {
+                if let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
                     return Session(database: database, journalManager: journalManager)
                 }
             }
@@ -88,22 +84,8 @@ public class Session {
     }
     
     public func save(to folderUrl: URL) {
-        let databaseUrl = folderUrl.appendingPathComponent("database")
-        // Create database folder, if needed
-        do {
-            try FileManager.default.createDirectory(at: databaseUrl, withIntermediateDirectories: true, attributes: nil)
-        } catch {
-            print("Error creating dir \(databaseUrl)")
-        }
-        database.save(to: databaseUrl)
-
-        let journalUrl = folderUrl.appendingPathComponent("journals")
-        do {
-            try FileManager.default.createDirectory(at: journalUrl, withIntermediateDirectories: true, attributes: nil)
-        } catch {
-            print("Error creating dir \(journalUrl)")
-        }
-        journalManager.save(to: journalUrl)
+        database.save(to: folderUrl)
+        journalManager.save(to: folderUrl)
     }
     
     func enqueue(diffs: [ObjectDiff]) {
@@ -114,12 +96,17 @@ public class Session {
         database.mergeEnqueued()
     }
     
+    public func fetch(of type: String) -> FetchResult {
+        return database.fetch(of: type, limitCount: 100, predicate: nil)
+    }
+    
     // Local database changes
     public func insert(identifier: String, object: DatabaseObject) {
         let now = Date()
         let diff = ObjectDiff.insert(identifier: identifier, timestamp: now, object: object)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
+        mergeEnqueued()
     }
     
     public func remove(identifier: String) {
@@ -127,6 +114,7 @@ public class Session {
         let diff = ObjectDiff.remove(identifier: identifier, timestamp: now)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
+        mergeEnqueued()
     }
     
     public func update(identifier: String, updatedProperties: [String : JSONValue]) {
@@ -134,6 +122,7 @@ public class Session {
         let diff = ObjectDiff.update(identifier: identifier, timestamp: now, properties: updatedProperties)
         journalManager.addToLocalJournal(diff: diff)
         enqueue(diffs: [diff])
+        mergeEnqueued()
     }
     
     public func sync(completion: @escaping (SessionSyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
@@ -156,24 +145,22 @@ public class Session {
                         
                         // Still have more results, so run sync() again
                         strongSelf.sync(completion: completion, partialResults: partialResults)
-
-                        callbackWhenDiffsMerged?(true)
                     }
                     
                 case .results(let diffs):
                     processDiffs(diffs)
                     DispatchQueue.main.async {
-                        completion(.success)
-                        
+                        strongSelf.mergeEnqueued()
                         callbackWhenDiffsMerged?(true)
+                        
+                        completion(.success)
                     }
                 }
 
             case .failure:
                 DispatchQueue.main.async {
-                    completion(.failure)
-                    
                     callbackWhenDiffsMerged?(false)
+                    completion(.failure)
                 }
             }
         })

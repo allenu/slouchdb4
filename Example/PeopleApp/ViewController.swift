@@ -28,6 +28,7 @@ class ViewController: NSViewController {
 
         // Do any additional setup after loading the view.
         tableView.dataSource = self
+        tableView.delegate = self
     }
 
     override func viewDidAppear() {
@@ -62,11 +63,19 @@ class ViewController: NSViewController {
         guard let document = document else { return }
         
         if let remoteFolder = remoteFolder {
-//            document.sync(remoteFolderURL: remoteFolder)
-            document.syncNew(remoteFolderUrl: remoteFolder)
+            document.syncNew(remoteFolderUrl: remoteFolder, completion: { response in
+                switch response {
+                case .success:
+                    Swift.print("Sync successful")
+                    
+                case .failure:
+                    Swift.print("Sync failed: ")
+                }
+                self.tableView.reloadData()
+            }, partialResults: { percent in
+                
+            })
             
-            // TODO: use Document to tell us when we should sync...
-            tableView.reloadData()
         }
     }
 
@@ -85,6 +94,24 @@ class ViewController: NSViewController {
                 }
             }
         })
+    }
+    
+    @IBAction func didTapDelete(sender: Any) {
+        guard let document = document else { return }
+
+        let selectedRow = tableView.selectedRow
+        if selectedRow >= 0 && selectedRow < document.people.count {
+
+            // Update the UI first
+            tableView.beginUpdates()
+            let rows = IndexSet(integer: selectedRow)
+            tableView.removeRows(at: rows, withAnimation: .slideUp)
+            tableView.endUpdates()
+
+            // Then the data
+            let person = document.people[selectedRow]
+            document.remove(person: person)
+        }
     }
 
 }
@@ -133,4 +160,7 @@ extension ViewController: NSTableViewDataSource {
             }
         }
     }
+}
+
+extension ViewController: NSTableViewDelegate {
 }

@@ -705,7 +705,7 @@
         <!--View Controller-->
         <scene sceneID="qvh-0y-8Ib">
             <objects>
-                <viewController id="SxB-56-zpn" customClass="ViewController" customModule="PeopleApp2" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="SxB-56-zpn" customClass="ViewController" customModule="PeopleApp" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" id="x41-Uu-BGR">
                         <rect key="frame" x="0.0" y="0.0" width="480" height="270"/>
                         <autoresizingMask key="autoresizingMask"/>
@@ -809,15 +809,26 @@
                                     <action selector="didTapSyncWithSender:" target="SxB-56-zpn" id="qeJ-m4-8iq"/>
                                 </connections>
                             </button>
+                            <button verticalHuggingPriority="750" translatesAutoresizingMaskIntoConstraints="NO" id="ur4-9w-Eyi">
+                                <rect key="frame" x="321" y="13" width="80" height="32"/>
+                                <buttonCell key="cell" type="push" title="Delete" bezelStyle="rounded" alignment="center" borderStyle="border" imageScaling="proportionallyDown" inset="2" id="H6b-FK-Adw">
+                                    <behavior key="behavior" pushIn="YES" lightByBackground="YES" lightByGray="YES"/>
+                                    <font key="font" metaFont="system"/>
+                                </buttonCell>
+                                <connections>
+                                    <action selector="didTapDeleteWithSender:" target="SxB-56-zpn" id="C4G-R3-imy"/>
+                                </connections>
+                            </button>
                         </subviews>
                         <constraints>
-                            <constraint firstItem="Q6K-VJ-Rml" firstAttribute="leading" relation="greaterThanOrEqual" secondItem="Xm3-N5-rX5" secondAttribute="trailing" constant="64" id="0rr-ec-HaD"/>
+                            <constraint firstItem="ur4-9w-Eyi" firstAttribute="bottom" secondItem="Q6K-VJ-Rml" secondAttribute="bottom" id="0aj-wG-X5r"/>
                             <constraint firstAttribute="bottom" secondItem="c7w-Q7-wZe" secondAttribute="bottom" constant="20" id="5Pi-ed-8Q2"/>
                             <constraint firstItem="d93-rM-0t3" firstAttribute="leading" secondItem="x41-Uu-BGR" secondAttribute="leading" constant="20" id="HgB-OE-C5h"/>
                             <constraint firstItem="d93-rM-0t3" firstAttribute="top" secondItem="x41-Uu-BGR" secondAttribute="top" constant="20" id="Jb5-Ue-7VD"/>
                             <constraint firstAttribute="bottom" secondItem="Q6K-VJ-Rml" secondAttribute="bottom" constant="20" id="Kwt-ok-wnX"/>
                             <constraint firstItem="c7w-Q7-wZe" firstAttribute="leading" secondItem="x41-Uu-BGR" secondAttribute="leading" constant="20" id="O8c-Ti-w8K"/>
                             <constraint firstItem="Xm3-N5-rX5" firstAttribute="leading" secondItem="c7w-Q7-wZe" secondAttribute="trailing" constant="12" id="OPL-be-YS5"/>
+                            <constraint firstItem="Q6K-VJ-Rml" firstAttribute="leading" secondItem="ur4-9w-Eyi" secondAttribute="trailing" constant="12" id="nQY-zG-cQu"/>
                             <constraint firstAttribute="trailing" secondItem="Q6K-VJ-Rml" secondAttribute="trailing" constant="20" id="nxZ-Rp-eK7"/>
                             <constraint firstItem="Q6K-VJ-Rml" firstAttribute="top" secondItem="d93-rM-0t3" secondAttribute="bottom" constant="12" id="q3a-Vb-hUm"/>
                             <constraint firstAttribute="trailing" secondItem="d93-rM-0t3" secondAttribute="trailing" constant="20" id="qqb-mf-9g0"/>

@@ -9,7 +9,9 @@
 import Foundation
 
 public protocol JournalFileManaging {
-    var folderUrl: URL? { get set }
+    var rootFolderUrl: URL { get }
+    
+    func save(to rootFolderUrl: URL)
     
     func writeLocal(diffs: [ObjectDiff], to identifier: String)
     
@@ -79,7 +81,7 @@ public class JournalManager: JournalManaging {
         // - we do have a remote setup properly
         // - we have internet access
         // - enough time has elapsed since last sync
-        return false
+        return true
     }
 
     public init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStoring, storedState: JournalManagerStoredState) {
@@ -92,7 +94,7 @@ public class JournalManager: JournalManaging {
         self.remoteFileVersion = storedState.remoteFileVersion
     }
     
-    public static func create(from folderUrl: URL) -> JournalManager? {
+    public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> JournalManager? {
         let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
 
         let decoder = JSONDecoder()
@@ -100,7 +102,7 @@ public class JournalManager: JournalManaging {
         
         if let data = try? Data(contentsOf: fileUrl),
             let storedState = try? decoder.decode(JournalManagerStoredState.self, from: data) {
-            let journalManager = JournalManager(journalFileManager: JournalFileManager(folderUrl: folderUrl), remoteFileStore: RemoteFileStore(), storedState: storedState)
+            let journalManager = JournalManager(journalFileManager: JournalFileManager(rootFolderUrl: folderUrl), remoteFileStore: remoteFileStore, storedState: storedState)
             
             return journalManager
         }
@@ -112,7 +114,7 @@ public class JournalManager: JournalManaging {
         // Save data to StoredState
         
         // Make note of folder now that we're saving
-        self.journalFileManager.folderUrl = folderUrl
+        self.journalFileManager.save(to: folderUrl)
         
         let storedState = JournalManagerStoredState(localIdentifier: localIdentifier,
                                                     journalByteOffsets: journalByteOffsets,
@@ -160,7 +162,7 @@ public class JournalManager: JournalManaging {
                             
                             fileAndVersion.forEach { fileAndVersion in
                                 let remoteFileUrl = fileAndVersion.url
-                                let fileIdentifier = remoteFileUrl.lastPathComponent
+                                let fileIdentifier = remoteFileUrl.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
                                 strongSelf.remoteFileVersion[fileIdentifier] = fileAndVersion.version
                                 
                                 dispatchGroup.enter()
@@ -211,58 +213,58 @@ public class JournalManager: JournalManaging {
             }
         }
         
-        remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
-            guard let strongSelf = self else { return }
-            
-            switch fetchedRemoteFileVersionsResponse {
-            case .success(let fetchedVersions):
+        DispatchQueue.global(qos: .background).async {
+            self.remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
+                guard let strongSelf = self else { return }
                 
-                var shouldPushLocalFile = false
-                if let remoteVersionOfLocalJournal = fetchedVersions[strongSelf.localIdentifier] {
-                    shouldPushLocalFile = strongSelf.lastLocalVersionPushed != remoteVersionOfLocalJournal
-                } else {
-                    shouldPushLocalFile = true
-                }
-                
-                if shouldPushLocalFile {
-                    // Get the URL of the local journal
-                    if let localFileUrl = strongSelf.journalFileManager.localFileUrl(for: strongSelf.localIdentifier) {
-                        strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
-                            guard let strongSelf = self else { return }
-                            
-                            switch pushResponse {
-                            case .success(let version):
-                                // Push succeeded.
-                                strongSelf.lastLocalVersionPushed = version
+                switch fetchedRemoteFileVersionsResponse {
+                case .success(let fetchedVersions):
+                    
+                    var shouldPushLocalFile = false
+                    if let remoteVersionOfLocalJournal = fetchedVersions[strongSelf.localIdentifier] {
+                        shouldPushLocalFile = strongSelf.lastLocalVersionPushed != remoteVersionOfLocalJournal
+                    } else {
+                        shouldPushLocalFile = true
+                    }
+                    
+                    if shouldPushLocalFile {
+                        // Get the URL of the local journal
+                        if let localFileUrl = strongSelf.journalFileManager.localFileUrl(for: strongSelf.localIdentifier) {
+                            strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
+                                guard let strongSelf = self else { return }
                                 
-                                doFetchRemoteFiles(fetchedVersions)
-                                
-                            case .failure(let reason):
-                                // TODO: Convert reason to a more specific sync files failure reason
-                                _ = reason
-                                completion(.failure(reason: .pushFailed))
+                                switch pushResponse {
+                                case .success(let version):
+                                    // Push succeeded.
+                                    strongSelf.lastLocalVersionPushed = version
+                                    
+                                    doFetchRemoteFiles(fetchedVersions)
+                                    
+                                case .failure(let reason):
+                                    // TODO: Convert reason to a more specific sync files failure reason
+                                    _ = reason
+                                    completion(.failure(reason: .pushFailed))
+                                }
                             }
+                        } else {
+                            // Maybe there wasn't a local file to push, so skip it
+                            
+                            doFetchRemoteFiles(fetchedVersions)
                         }
                     } else {
-                        // Let's pretend the push succeeded since we can't recover from a scenario where a local
-                        // file we expected doesn't exist. Just gracefully move on.
-                        assertionFailure("Local file doesn't exist to push!")
-
+                        // No files to push, so treat as success and go onto next step
                         doFetchRemoteFiles(fetchedVersions)
                     }
-                } else {
-                    // No files to push, so treat as success and go onto next step
-                    doFetchRemoteFiles(fetchedVersions)
+                    
+                case .failure(let reason):
+                    // TODO: Convert reason to a more specific sync files failure reason
+                    _ = reason
+                    DispatchQueue.main.async {
+                        completion(.failure(reason: .fetchRemoteVersionsFailed))
+                    }
                 }
-                
-            case .failure(let reason):
-                // TODO: Convert reason to a more specific sync files failure reason
-                _ = reason
-                DispatchQueue.main.async {
-                    completion(.failure(reason: .fetchRemoteVersionsFailed))
-                }
-            }
-        })
+            })
+        }
     }
     
     // The job of this function is to grab as many diffs (at most maxDiffs) from the journals that have pending

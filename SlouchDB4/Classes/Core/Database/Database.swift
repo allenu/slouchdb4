@@ -22,8 +22,13 @@ public struct FetchCursor {
     let predicate: ((DatabaseObject) -> Bool)?
 }
 
+public struct FetchedDatabaseObject {
+    public let identifier: String
+    public let object: DatabaseObject
+}
+
 public struct FetchResult {
-    public let results: [DatabaseObject]
+    public let results: [FetchedDatabaseObject]
     public let cursor: FetchCursor
 }
 
@@ -105,19 +110,20 @@ public class Database {
     public func fetchMore(cursor: FetchCursor, limitCount: Int = Database.maxFetchCount) -> FetchResult {
         // If we've gone past the index by now, stop
         var currentPosition = cursor.nextObjectOffset
-        var collectedItems: [DatabaseObject] = []
+        var collectedItems: [FetchedDatabaseObject] = []
         while currentPosition < sortedIdentifiers.count && collectedItems.count < limitCount {
             let nextIdentifier = sortedIdentifiers[currentPosition]
             
             let shouldIncludeObject: Bool
-            if let objectState = self.fetch(identifier: nextIdentifier) {
+            if let object = self.fetch(identifier: nextIdentifier) {
                 if let predicate = cursor.predicate {
-                    shouldIncludeObject = predicate(objectState)
+                    shouldIncludeObject = predicate(object)
                 } else {
                     shouldIncludeObject = true
                 }
                 if shouldIncludeObject {
-                    collectedItems.append(objectState)
+                    let fetchedObject = FetchedDatabaseObject(identifier: nextIdentifier, object: object)
+                    collectedItems.append(fetchedObject)
                 }
             } else {
                 assertionFailure("Cache mismatch. Identifier shows up in sortedIdentifiers but not in cache")

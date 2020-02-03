@@ -10,10 +10,19 @@ import Cocoa
 import SlouchDB4
 
 class Document: NSDocument {
+    override var fileURL: URL? {
+        didSet {
+            if let fileURL = fileURL {
+                journalFileManager.rootFolderUrl = fileURL
+            }
+        }
+    }
     var session: Session
     
     var numEntries: Int = 1
-
+    var fileSystemRemoteFileStore: FileSystemRemoteFileStore
+    let journalFileManager: JournalFileManager
+    
     override init() {
         // Add your subclass-specific initialization here.
         let localIdentifier = UUID().uuidString // TODO: ???
@@ -22,18 +31,17 @@ class Document: NSDocument {
         let objectCache = InMemObjectCache()
         let database = Database(objectCache: objectCache, objectHistoryTracker: tracker, sortedIdentifiers: [])
         
-        let journalFileManager = JournalFileManager()
-        let remoteFileStore = RemoteFileStore()
+        let directory = NSTemporaryDirectory()
+        let pathName = NSUUID().uuidString
+        let tempUrl = NSURL.fileURL(withPathComponents: [directory, pathName])!
+
+        journalFileManager = JournalFileManager(rootFolderUrl: tempUrl)
+        fileSystemRemoteFileStore = FileSystemRemoteFileStore(rootFolderUrl: tempUrl)
+        let remoteFileStore = fileSystemRemoteFileStore
         let storedState = JournalManagerStoredState(localIdentifier: localIdentifier, journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
 
         session = Session(database: database, journalManager: journalManager)
-
-// TODO:
-        /*
-        let database = Database(objectCache: ObjectCache())
-        session = Session(localIdentifier: localIdentifier, database: database)
- */
 
         super.init()
     }
@@ -49,12 +57,36 @@ class Document: NSDocument {
         self.addWindowController(windowController)
     }
     
-    override func write(to url: URL, ofType typeName: String) throws {
-        session.save(to: url)
+    override func write(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType, originalContentsURL absoluteOriginalContentsURL: URL?) throws {
+        
+        let allowSave: Bool
+        switch saveOperation {
+        case .saveAsOperation, .saveOperation, .saveToOperation:
+            allowSave = true
+            
+        case .autosaveAsOperation, .autosaveElsewhereOperation, .autosaveInPlaceOperation:
+            allowSave = false
+        @unknown default:
+            allowSave = false
+        }
+        
+        if allowSave {
+            // Create folder if not exists
+            if !FileManager.default.fileExists(atPath: url.path) {
+                try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
+            }
+            
+            session.save(to: url)
+        } else {
+            throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
+
+        }
     }
     
     override func read(from url: URL, ofType typeName: String) throws {
-        if let session = Session.create(from: url) {
+        fileSystemRemoteFileStore = FileSystemRemoteFileStore(rootFolderUrl: url)
+        let remoteFileStore = fileSystemRemoteFileStore
+        if let session = Session.create(from: url, with: remoteFileStore) {
             self.session = session
         } else {
             throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
@@ -62,101 +94,78 @@ class Document: NSDocument {
     }
 
     // Person stuff
-   func add(person: Person) {
-       let properties: [String : JSONValue] = [
-           Person.namePropertyKey : .string(person.name),
-           Person.agePropertyKey : .int(person.age),
-           Person.weightPropertyKey : .int(person.weight)
-       ]
-       let now = Date()
-        numEntries = numEntries + 1
-    // TODO:
-//       let diffs: [JournalDiff] = [
-//           JournalDiff(diffType: .insert,
-//                       objectType: "person",
-//                       identifier: person.identifier,
-//                       timestamp: now,
-//                       properties: properties)
-//       ]
-//       let object = CreateDatabaseObject(from: diffs)!
-//       let objectState = ObjectState(identifier: person.identifier,
-//                                     diffs: diffs,
-//                                     object: object)
-//       session.insert(objectState)
-    
-       self.updateChangeCount(.changeDone)
-   }
-   
-   func remove(person: Person) {
-//       session.remove(identifier: person.identifier)
-   }
-   
-   var people: [Person] {
-
-    // TODO:
-//       let fetchResults = session.fetch(of: "person")
-//       let objectStates = fetchResults.results
-//
-//       return objectStates.map { objectState in
-//           let name: String
-//           let age: Int
-//           let weight: Int
-//
-//           if let nameProperty = objectState.object.properties[Person.namePropertyKey],
-//               case let JSONValue.string(value) = nameProperty {
-//               name = value
-//           } else {
-//               name = "Unnamed"
-//           }
-//
-//           if let ageProperty = objectState.object.properties[Person.agePropertyKey],
-//               case let JSONValue.int(value) = ageProperty {
-//               age = value
-//           } else {
-//               age = 0
-//           }
-//
-//           if let weightProperty = objectState.object.properties[Person.weightPropertyKey],
-//               case let JSONValue.int(value) = weightProperty {
-//               weight = value
-//           } else {
-//               weight = 0
-//           }
-//
-//           return Person(identifier: objectState.identifier,
-//                         name: name,
-//                         weight: weight,
-//                         age: age)
-//       }
-    
-    let persons = Array(0..<numEntries).map { index in
-        return Person(identifier: "\(index)", name: "John \(index)", weight: index + 100, age: index + 30)
+    func add(person: Person) {
+        let properties: [String : JSONValue] = [
+            Person.namePropertyKey : .string(person.name),
+            Person.agePropertyKey : .int(person.age),
+            Person.weightPropertyKey : .int(person.weight)
+        ]
+        session.insert(identifier: UUID().uuidString, object: DatabaseObject(type: "person", properties: properties))
+        self.updateChangeCount(.changeDone)
     }
-    
-    return persons
-   }
-
-   func modifyPerson(identifier: String, properties: [String : JSONValue]) {
-    // TODO:
-//       session.update(identifier: identifier, properties: properties)
-       
-       self.updateChangeCount(.changeDone)
-   }
    
-   func syncNew(remoteFolderUrl: URL) {
-       /*
-       let remoteSessionStore = FileBasedRemoteSessionStore(remoteFolderUrl: remoteFolderUrl)
-       session.sync(remoteSessionStore: remoteSessionStore, completionHandler: { response in
-           switch response {
-           case .success:
-               Swift.print("Sync successful")
-               self.updateChangeCount(.changeDone)
-               
-           case .failure(let reason):
-               Swift.print("Sync failed: \(reason)")
-           }
-       })
-*/
+    func remove(person: Person) {
+       session.remove(identifier: person.identifier)
+    }
+   
+    var people: [Person] {
+        let fetchResults = session.fetch(of: "person")
+        let objectStates = fetchResults.results
+
+        return objectStates.map { fetchedObject in
+            let name: String
+            let age: Int
+            let weight: Int
+
+            if let nameProperty = fetchedObject.object.properties[Person.namePropertyKey],
+                case let JSONValue.string(value) = nameProperty {
+                name = value
+            } else {
+                name = "Unnamed"
+            }
+
+            if let ageProperty = fetchedObject.object.properties[Person.agePropertyKey],
+                case let JSONValue.int(value) = ageProperty {
+                age = value
+            } else {
+                age = 0
+            }
+
+            if let weightProperty = fetchedObject.object.properties[Person.weightPropertyKey],
+                case let JSONValue.int(value) = weightProperty {
+                weight = value
+            } else {
+                weight = 0
+            }
+
+            return Person(identifier: fetchedObject.identifier,
+                          name: name,
+                          weight: weight,
+                          age: age)
+        }
+    }
+
+    func modifyPerson(identifier: String, properties: [String : JSONValue]) {
+        session.update(identifier: identifier, updatedProperties: properties)
+       
+        self.updateChangeCount(.changeDone)
+    }
+   
+    func syncNew(remoteFolderUrl: URL,
+                 completion: @escaping (SessionSyncResponse) -> Void,
+                 partialResults: @escaping (Double) -> Void) {
+        fileSystemRemoteFileStore.remoteFolderUrl = remoteFolderUrl
+        
+        session.sync(completion: { response in
+            switch response {
+            case .success:
+                self.updateChangeCount(.changeDone)
+                
+            case .failure:
+                break
+            }
+            completion(response)
+        }, partialResults: partialResults)
    }
 
 }
