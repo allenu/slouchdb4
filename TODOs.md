@@ -1,6 +1,62 @@
 
+- [ ] Figure out background execution policy
+    - Should RemoteFileStore take care of issuing code in background?
+    - Or should they assume they will already be in a background thread and let JournalManager do that?
+      - If so, this gives more freedom to scheduling to JournalManager
+
+    - [ ] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
+
+    - [ ] Should fetches be cancellable (if they take too long)
+        - Should they quit after N entries?
+        - Maybe have a cursor that lets you re-issue the search starting from a specific index?
+
+    Principles/constraints:
+    - Session should hide all background execute from its client.
+    - JournalManager itself may have some background execution (like when it needs to do file-copying or
+      replacing due to a remote sync)
+
+    Decision:
+    - JournalManager should do all background threading it needs and call completions in main thread
+
+- [x] BUG: PeopleApp - if you type a search and then sync the database, the search should still apply
+
+- [x] BUG: Sync can never end !?
+    - Bug is that when we have a lot of entries to sync and get back "partial" results, if we keep fetching
+      again and again while we received partial results, we do not update the byte counter for the journals.
+      We only update the byte counter when we finish merging. But this means fetches will continue forever.
+
+      Possible fixes:
+      - 1. execute the callback even when partial results are received, even if they have not been merged.
+           - However, this isn't a good fix because the whole point of the callback was to ensure that
+             the client of JournalManager has committed the diffs it received and "saved" them. If we don't
+             do it this way, we could cause the journal byte offsets to be ahead of what the caller has
+             processed, thereby losing data if we crash.
+
+      - 1a. partial results should include the last journal byte offsets
+           - when doing subsequent fetches, pass back in the state of the last journal byte offsets
+           - we can then continue where we left off
+
+           - This should work, but it still doesn't follow the design intent of partial fetches. The
+             whole reason partial fetches exist is that the JournalManager doesn't want the caller to
+             have too many things to process all at once. The caller really should process the partial
+             diffs it gets before coming back for more.
+
+      - 2. always merge even on partial results
+       
+           - This seems to be the correct solution and is in line with the design tenet of "process
+             smaller chunks of a large set of diffs". The whole idea was to reduce how many diffs
+             are in memory at a time. In practice, the number of diffs processed at a time may be
+             so large anyway (thousands of entries) that in practice we don't normally do partial
+             results anyway.
+
+- [ ] Smarter tableView loading
+    - [ ] Only fetch max number of entries that are visible at a time
+    - [ ] As user scrolls down, fetch more entries if needed
+    - [ ] Allow fetch results to complete asynchronously
+        - i.e. show a "loading..." cell if needed
+
 - [ ] Test large databases
-    - [ ] Modify PeopleApp to search name
+    - [x] Modify PeopleApp to search name
         - add search field
         - as you type, redoes search query
     - [ ] Create test journal that has 10,000 entries
@@ -17,17 +73,6 @@
 - [ ] Create utility app that can load any arbitrary database
     - has search field where you can type fieldname:value ??
     - has a list of N entries (paged and loaded in memory on the fly)
-
-- [ ] Figure out background execution policy
-    - Should RemoteFileStore take care of issuing code in background?
-    - Or should they assume they will already be in a background thread and let JournalManager do that?
-      - If so, this gives more freedom to scheduling to JournalManager
-
-    - [ ] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
-
-    - [ ] Should fetches be cancellable (if they take too long)
-        - Should they quit after N entries?
-        - Maybe have a cursor that lets you re-issue the search starting from a specific index?
 
 - [-] Make RemoteFileStoring.push(localFile: URL) be push(identifier:) instead
     => Can't really do this since RemoteFileStoring doesn't keep track of file locations (especially now

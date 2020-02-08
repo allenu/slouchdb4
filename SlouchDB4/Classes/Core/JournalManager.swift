@@ -313,7 +313,7 @@ public class JournalManager: JournalManaging {
                                                                            byteOffset: updatedByteOffset,
                                                                            maxDiffs: maxDiffsAttemptToFetch)
                     
-                    print("readNextDiffs from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult)")
+                    print("readNextDiffs from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.diffs.count) diffs  \(readResult.byteOffset) offset")
                     
                     if readResult.diffs.count > 0 {
                         diffs.append(contentsOf: readResult.diffs)

@@ -105,6 +105,14 @@ public class Session {
         return database.fetch(of: type, limitCount: 100, predicate: nil)
     }
     
+    public func fetch(of type: String, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
+        return database.fetch(of: type, limitCount: limitCount, predicate: predicate)
+    }
+    
+    public func fetchMore(cursor: FetchCursor, limitCount: Int = Database.maxFetchCount) -> FetchResult {
+        return database.fetchMore(cursor: cursor, limitCount: limitCount)
+    }
+    
     // Local database changes
     public func insert(identifier: String, object: DatabaseObject) {
         let now = Date()
@@ -146,8 +154,15 @@ public class Session {
                 case .partialResults(let diffs, let percent):
                     processDiffs(diffs)
                     DispatchQueue.main.async {
+
+                        // Process the partial results and let JournalManager that we've
+                        // saved them.
+                        strongSelf.mergeEnqueued()
+                        callbackWhenDiffsMerged?(true)
+
+                        // Tell client of Session that we have partial results ready.
                         partialResults(percent)
-                        
+
                         // Still have more results, so run sync() again
                         strongSelf.sync(completion: completion, partialResults: partialResults)
                     }

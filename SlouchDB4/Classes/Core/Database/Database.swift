@@ -19,7 +19,7 @@ public struct FetchCursor {
     // - identifier, date created, date last modified ?
     public let nextObjectOffset: Int
     public let noMoreResults: Bool
-    let predicate: ((DatabaseObject) -> Bool)?
+    let predicate: ((FetchedDatabaseObject) -> Bool)?
 }
 
 public struct FetchedDatabaseObject {
@@ -102,7 +102,7 @@ public class Database {
         }
     }
     
-    public func fetch(of type: String, limitCount: Int = Database.maxFetchCount, predicate: ((DatabaseObject) -> Bool)? = nil) -> FetchResult {
+    public func fetch(of type: String, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
         let cursor = FetchCursor(nextObjectOffset: 0, noMoreResults: false, predicate: predicate)
         return fetchMore(cursor: cursor, limitCount: limitCount)
     }
@@ -117,7 +117,7 @@ public class Database {
             let shouldIncludeObject: Bool
             if let object = self.fetch(identifier: nextIdentifier) {
                 if let predicate = cursor.predicate {
-                    shouldIncludeObject = predicate(object)
+                    shouldIncludeObject = predicate(FetchedDatabaseObject(identifier: nextIdentifier, object: object))
                 } else {
                     shouldIncludeObject = true
                 }
@@ -139,7 +139,7 @@ public class Database {
         return fetchResult
     }
     
-    public func count(of type: String, predicate: ((DatabaseObject) -> Bool)? = nil) -> ObjectCountResult {
+    public func count(of type: String, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> ObjectCountResult {
         let fetchResult = fetch(of: type, predicate: predicate)
         
         if fetchResult.results.count == 0 {

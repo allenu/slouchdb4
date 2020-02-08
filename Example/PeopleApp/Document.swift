@@ -107,37 +107,7 @@ class Document: NSDocument {
         let fetchResults = session.fetch(of: "person")
         let objectStates = fetchResults.results
 
-        return objectStates.map { fetchedObject in
-            let name: String
-            let age: Int
-            let weight: Int
-
-            if let nameProperty = fetchedObject.object.properties[Person.namePropertyKey],
-                case let JSONValue.string(value) = nameProperty {
-                name = value
-            } else {
-                name = "Unnamed"
-            }
-
-            if let ageProperty = fetchedObject.object.properties[Person.agePropertyKey],
-                case let JSONValue.int(value) = ageProperty {
-                age = value
-            } else {
-                age = 0
-            }
-
-            if let weightProperty = fetchedObject.object.properties[Person.weightPropertyKey],
-                case let JSONValue.int(value) = weightProperty {
-                weight = value
-            } else {
-                weight = 0
-            }
-
-            return Person(identifier: fetchedObject.identifier,
-                          name: name,
-                          weight: weight,
-                          age: age)
-        }
+        return objectStates.map { Person.create(from: $0.identifier, databaseObject: $0.object) }
     }
 
     func modifyPerson(identifier: String, properties: [String : JSONValue]) {

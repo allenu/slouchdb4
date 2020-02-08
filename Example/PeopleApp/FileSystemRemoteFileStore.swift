@@ -36,7 +36,6 @@ public class FileSystemRemoteFileStore: RemoteFileStoring {
 
                     if let fileAttributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path) as [FileAttributeKey : Any] {
                         if let lastModifiedDate = fileAttributes[FileAttributeKey.modificationDate] as? Date {
-                            print("lastModifiedDate: \(lastModifiedDate)")
                             let dateFormatter = ISO8601DateFormatter()
                             let version = dateFormatter.string(from: lastModifiedDate)
                             

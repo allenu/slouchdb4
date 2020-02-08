@@ -8,10 +8,19 @@
 
 import Cocoa
 
+enum TableViewSourceDataType {
+    case all
+    case filteredResults(searchText: String, people: [Person])
+}
+
 class ViewController: NSViewController {
     @IBOutlet weak var tableView: NSTableView!
     @IBOutlet weak var identifierLabel: NSTextField!
     @IBOutlet weak var folderButton: NSButton!
+    @IBOutlet weak var searchField: NSTextField!
+    var nextSearchTime: Date?
+    var isSearching = false // TODO: Don't need this if we have contextId
+    var sourceDataType: TableViewSourceDataType = .all
 
     private var _document: Document?
     var document: Document? {
@@ -23,6 +32,7 @@ class ViewController: NSViewController {
         }
     }
     var remoteFolder: URL?
+    var searchContextId: Int = 0
 
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -30,6 +40,8 @@ class ViewController: NSViewController {
         // Do any additional setup after loading the view.
         tableView.dataSource = self
         tableView.delegate = self
+        
+        searchField.delegate = self
     }
 
     override func viewDidAppear() {
@@ -73,7 +85,15 @@ class ViewController: NSViewController {
                 case .failure:
                     Swift.print("Sync failed: ")
                 }
-                self.tableView.reloadData()
+                
+                switch self.sourceDataType {
+                case .all:
+                    self.tableView.reloadData()
+                    
+                case .filteredResults(let searchText, _):
+                    // Rerun search
+                    self.search(text: searchText)
+                }
             }, partialResults: { percent in
                 
             })
@@ -100,9 +120,18 @@ class ViewController: NSViewController {
     
     @IBAction func didTapDelete(sender: Any) {
         guard let document = document else { return }
+        
+        let people: [Person]
+        switch sourceDataType {
+        case .all:
+            people = document.people
+            
+        case .filteredResults(_, let filteredResults):
+            people = filteredResults
+        }
 
         let selectedRow = tableView.selectedRow
-        if selectedRow >= 0 && selectedRow < document.people.count {
+        if selectedRow >= 0 && selectedRow < people.count {
 
             // Update the UI first
             tableView.beginUpdates()
@@ -111,8 +140,61 @@ class ViewController: NSViewController {
             tableView.endUpdates()
 
             // Then the data
-            let person = document.people[selectedRow]
+            let person = people[selectedRow]
             document.remove(person: person)
+        }
+    }
+    
+    func search(text: String) {
+        guard let document = document else { return }
+        guard !isSearching else { return }
+
+        if text.isEmpty {
+            sourceDataType = .all
+            tableView.reloadData()
+        } else {
+            // Only execute a search some delta after you've finished typing to allow
+            // you to type a bunch first.
+            let searchStartDelta: TimeInterval = 0.1
+            nextSearchTime = Date().addingTimeInterval(searchStartDelta)
+            
+            // Keep track of this search so that we don't bother getting results if a new search by the user
+            // is created while we're fetching an old one.
+            searchContextId = searchContextId + 1
+            let thisSearchContextId = searchContextId
+            
+            DispatchQueue.main.asyncAfter(deadline: .now() + searchStartDelta, execute: {
+                guard let nextSearchTime = self.nextSearchTime else { return }
+                
+                // NOTE: Something may have come along and bumped nextSearchTime
+                // ahead, so need to check first if we've passed it.
+                let now = Date()
+                if now >= nextSearchTime {
+                    self.nextSearchTime = nil
+                    self.isSearching = true
+                    
+                    // Do search now
+                    print("Searching \(text)")
+                    
+                    // Do search in background since it might take a while
+                    DispatchQueue.global(qos: .userInitiated).async {
+                            
+                        let results = document.session.fetch(of: "person", limitCount: 100, predicate: { fetchedObject in
+                            let person = Person.create(from: fetchedObject.identifier, databaseObject: fetchedObject.object)
+                            return person.name.lowercased().contains(text)
+                        }).results.map { Person.create(from: $0.identifier, databaseObject: $0.object) }
+                        
+                        DispatchQueue.main.async {
+                            // Only use result if we're still on the same search request
+                            if thisSearchContextId == self.searchContextId {
+                                self.sourceDataType = .filteredResults(searchText: text, people: results)
+                                self.tableView.reloadData()
+                            }
+                            self.isSearching = false
+                        }
+                    }
+                }
+            })
         }
     }
 
@@ -121,14 +203,32 @@ class ViewController: NSViewController {
 extension ViewController: NSTableViewDataSource {
     public func numberOfRows(in tableView: NSTableView) -> Int {
         guard let document = document else { return 0 }
-        
-        return document.people.count
+        let people: [Person]
+        switch sourceDataType {
+        case .all:
+            people = document.people
+            
+        case .filteredResults(_, let filteredResults):
+            people = filteredResults
+        }
+
+        return people.count
     }
     
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         guard let document = document else { return nil }
         
-        let person = document.people[row]
+        // TODO: Refactor this and put in a common people getter
+        let people: [Person]
+        switch sourceDataType {
+        case .all:
+            people = document.people
+            
+        case .filteredResults(_, let filteredResults):
+            people = filteredResults
+        }
+
+        let person = people[row]
         if tableColumn!.identifier.rawValue == Person.namePropertyKey {
             return person.name
         } else if tableColumn!.identifier.rawValue == Person.weightPropertyKey {
@@ -142,8 +242,16 @@ extension ViewController: NSTableViewDataSource {
     
     func tableView(_ tableView: NSTableView, setObjectValue object: Any?, for tableColumn: NSTableColumn?, row: Int) {
         guard let document = document else { return }
+        let people: [Person]
+        switch sourceDataType {
+        case .all:
+            people = document.people
+            
+        case .filteredResults(_, let filteredResults):
+            people = filteredResults
+        }
         
-        var person = document.people[row]
+        var person = people[row]
         if let value = object as? String {
             if tableColumn!.identifier.rawValue == Person.namePropertyKey {
                 person.name = value
@@ -165,4 +273,14 @@ extension ViewController: NSTableViewDataSource {
 }
 
 extension ViewController: NSTableViewDelegate {
+}
+
+extension ViewController: NSTextFieldDelegate {
+    func controlTextDidChange(_ obj: Notification) {
+
+        let searchText = searchField.stringValue.lowercased()
+        print("##\(searchText)##")
+
+        self.search(text: searchText)
+    }
 }
