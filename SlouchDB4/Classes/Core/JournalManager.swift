@@ -178,13 +178,15 @@ public class JournalManager: JournalManaging {
                                         
                                         print("replaced file \(fileIdentifier) with \(remoteFileUrl)")
 
-                                        // Add journal readers for each journal that we're missing
-                                        if strongSelf.journalByteOffsets[fileIdentifier] == nil {
-                                            // Add new entry since it wasn't there yet
-                                            strongSelf.journalByteOffsets[fileIdentifier] = 0
+                                        DispatchQueue.main.async {
+                                            // Add journal readers for each journal that we're missing
+                                            if strongSelf.journalByteOffsets[fileIdentifier] == nil {
+                                                // Add new entry since it wasn't there yet
+                                                strongSelf.journalByteOffsets[fileIdentifier] = 0
+                                            }
+                                            
+                                            dispatchGroup.leave()
                                         }
-                                        
-                                        dispatchGroup.leave()
                                 })
                             }
                             

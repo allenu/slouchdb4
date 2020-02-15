@@ -1,10 +1,87 @@
 
+- [ ] Update PeopleApp to handle pagination
+    - [ ] Assume N entries can appear on screen at a time and fetch 2N entries
+    - [ ] When we display entry 2N * 0.75, start fetching another N entries
+    - [ ] have a cached window of some M entries - enough below and above current window
+    - [ ] if we scroll up beyond the current cached entries, do a *reverse* fetch
+
+- [ ] Add "revese" fetch from a given cursor position
+    - will return N entries going backwards from a given position in the index
+    - [ ] Add a fetch with query as well
+        - make it stop searching when it finds N entries or when it gets to the start of the list
+        - make sure to indicate "no more results" if we get to the first entry
+
+- [ ] Store ObjectHistoryTracker histories and ObjectCache objects in sqlite
+    - [ ] cache N entries in memory at a time and evict least used if it fills up
+        - [ ] Evict M entries in the cache to allow for more room
+    - [ ] only write to sqlite when
+        - [ ] cache entry is evicted
+        - [ ] we are doing a 'save' operation
+    - [ ] make sure we save regularly
+        - [ ] when app is backgrounded
+        - [ ] after N seconds have elapsed since the last save (and there are unsaved entries)
+    - [ ] Design the wrapper around Sqlite:
+        - [ ] init with url
+        - [ ] if db doesn't exist, create it
+            - [ ] create the table
+        - [ ] add wrapper to insert a new object
+        - [ ] add wrapper to remove an existing object
+
+
+- [ ] FIgure out how to solve these hard questions
+    - [ ] If you have a large database and want to do a sort on a non-indexed property, how do you do it??
+        - very slow, but low footprint: find N lowest items, then return; then find next N items (making sure
+          to only search items greater than the last item in the first query), continue on until you've
+          exhausted the list
+
+- [ ] See if we can index off a given property instead of just by identifier -- how would it work?
+
+- [ ] Try loading the SlouchDB2 journal files
+    - [ ] Write some Swift code that loads a v2 journal file into mem and writes it out as v4
+    - [ ] Write an app that searches a directory for .journal files and outputs .journal-v4 files
+
+- [ ] BUG: if you type 'alice' in the people app and then add random entries, eventually one
+      will be "Alice" but it won't show up in the search results
+
 - [ ] Figure out background execution policy
     - Should RemoteFileStore take care of issuing code in background?
     - Or should they assume they will already be in a background thread and let JournalManager do that?
       - If so, this gives more freedom to scheduling to JournalManager
 
-    - [ ] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
+    - [x] Should JournalFileManager handle long-running tasks or should we just have JournalManager handle it?
+        => don't bother with JournalManager handling it
+        - the only "long-running" task is syncFiles()
+        - other tasks may be slow, but caller can make request in its own background thread if desired
+
+    - [ ] figure out which requests are synchronous and which are not
+
+        - synchronous
+            - fetchLatestDiffsWithoutSync(completion:) can be synchronous
+            - save(to:)
+            - addtoLocalJournal(diff:)
+
+        - async
+            - syncFiles(completion:)
+            - fetchLatestDiffs() since it may do a sync
+
+    - [ ] figure out which requests mutate state
+        - syncFiles()
+            - replaces local copies of remote journal files
+            - should only be one syncFiles() call happening at any one time
+
+        - addToLocalJournal(diff:)
+            - updates local journal file
+            - generally only one call at a time
+
+        - fetchLatestDiffsWithoutSync
+            - updates byte offsets for each journal, but only at end of request
+            - only one call at a time
+            - [ ] Make this synchronous and have client do the mutation part:
+                - [ ] fetchlatestDiffsWithoutSync should return just the diffs and the new journal byte offsets
+                - [ ] add updateJournalOffsets(byteOffsets: [String : UInt64]) which just mutates the
+                    journal offsets and updates to the new values provided. HOWEVER, it should only do it
+                    if the new indices are GREATER than the old ones.
+                - [ ] Get rid of FetchJournalDiffsResponse since .failure never happens
 
     - [ ] Should fetches be cancellable (if they take too long)
         - Should they quit after N entries?
@@ -17,6 +94,14 @@
 
     Decision:
     - JournalManager should do all background threading it needs and call completions in main thread
+
+    - fetchLatestDiffs(completion:) need not use background threading itself
+    - fetchLatestDiffsWithoutSync(completion:) also doesn't need to execute in the background. Caller can call
+      it in background if it desires.
+    - syncFiles(completion:) -- 
+    - save(to:) is synchronous
+
+
 
 - [x] BUG: PeopleApp - if you type a search and then sync the database, the search should still apply
 
