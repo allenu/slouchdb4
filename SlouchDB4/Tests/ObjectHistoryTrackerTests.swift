@@ -17,20 +17,22 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
     
     func testProcessNothing() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
 
         XCTAssert(tracker.pendingUpdates.count == 0)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 0)
         XCTAssert(tracker.pendingUpdates.count == 0)
     }
 
     func testSingleDiff() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         let now = Date()
         let object = DatabaseObject(type: "person", properties: ["name" : .string("John")])
@@ -39,7 +41,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 1)
         XCTAssert(mergeResult.insertedObjects.count == 1)
@@ -47,8 +49,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testTwoSeparateDiffs() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         let now = Date()
         let firstObject = DatabaseObject(type: "person", properties: ["name" : .string("John")])
@@ -59,7 +62,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         
         XCTAssert(tracker.pendingUpdates.count == 2)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 2)
         XCTAssert(mergeResult.insertedObjects.count == 2)
@@ -67,8 +70,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
     
     func testOrderDoesntMatter_InSameEnqueue() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -80,7 +84,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Updates go to same object
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 1)
         XCTAssert(mergeResult.insertedObjects.count == 1)
@@ -91,8 +95,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testOrderDoesntMatter_InDifferentEnqueues() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -105,7 +110,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Updates go to same object
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 1)
         XCTAssert(mergeResult.insertedObjects.count == 1)
@@ -117,9 +122,10 @@ class ObjectHistoryTrackerTests: XCTestCase {
     
     // We have three diffs, but only 1st and 3rd are known at first. Later, 2nd diff comes in
     // and should be incorporated. (May lead to a "replay" situation internally.)
-    func testInsertingMissingDiffLater_WhenNotInObjectCache() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+    func testInsertingMissingDiffLater_WhenNotInObjectStore() {
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -133,7 +139,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Updates go to same object
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 1)
         XCTAssert(mergeResult.insertedObjects.count == 1)
@@ -148,10 +154,10 @@ class ObjectHistoryTrackerTests: XCTestCase {
         
         XCTAssert(tracker.pendingUpdates.count == 1)
         
-        let updatedMergeResult = tracker.process(objectCache: objectCache)
+        let updatedMergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(updatedMergeResult.totalChanges == 1)
-        XCTAssert(updatedMergeResult.insertedObjects.count == 1)    // Should show up as an "insert" still because it's not in objectCache
+        XCTAssert(updatedMergeResult.insertedObjects.count == 1)    // Should show up as an "insert" still because it's not in objectStore
         XCTAssert(tracker.pendingUpdates.count == 0)
         
         let secondObject = updatedMergeResult.insertedObjects.first!.value
@@ -159,9 +165,10 @@ class ObjectHistoryTrackerTests: XCTestCase {
         XCTAssert(secondObject.properties["age"] == JSONValue.int(23))
     }
 
-    func testInsertingMissingDiffLater_WhenAlreadyInObjectCache() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+    func testInsertingMissingDiffLater_WhenAlreadyInObjectStore() {
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -175,7 +182,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Updates go to same object
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(mergeResult.totalChanges == 1)
         XCTAssert(mergeResult.insertedObjects.count == 1)
@@ -186,14 +193,14 @@ class ObjectHistoryTrackerTests: XCTestCase {
         XCTAssert(object.properties["age"] == JSONValue.int(23))
         
         // Insert object into cache so that we are forced to update in-place
-        objectCache.insert(identifier: "1", object: object)
+        objectStore.insert(identifier: "1", object: object)
         
         // Now apply 2nd item
         tracker.enqueue(diffs: [secondDiff])
         
         XCTAssert(tracker.pendingUpdates.count == 1)
         
-        let updatedMergeResult = tracker.process(objectCache: objectCache)
+        let updatedMergeResult = tracker.process(objectStore: objectStore)
         
         XCTAssert(updatedMergeResult.totalChanges == 1)
         XCTAssert(updatedMergeResult.updatedObjects.count == 1)    // Now shows up as "insert"
@@ -205,8 +212,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testUpdatesOnNonExistentObjectShouldDoNothing() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -218,7 +226,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Should not be a pending update
         XCTAssert(tracker.pendingUpdates.count == 0)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         // Should do nothing
         XCTAssert(mergeResult.totalChanges == 0)
@@ -227,8 +235,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testInsertAndRemoveDiffsShouldStillHaveHistory() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -243,7 +252,7 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // Should be a pending update still (we don't know if history will be deleted yet, unfortunately)
         XCTAssert(tracker.pendingUpdates.count == 1)
 
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         // When we merge, we'll find there are no outcomes
         XCTAssert(mergeResult.totalChanges == 0)
@@ -254,8 +263,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testSameDiffShouldNotBeInserted() {
-        let tracker = ObjectHistoryTracker()
-        
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+
         // Diffs just use date, not order of enqueue
         let now = Date()
         let firstObject = DatabaseObject(type: "person", properties: ["name" : .string("First")])
@@ -276,8 +286,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
 
     func testInsertedDiffShouldCauseReplay() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -290,14 +301,14 @@ class ObjectHistoryTrackerTests: XCTestCase {
         tracker.enqueue(diffs: [firstDiff])
         tracker.enqueue(diffs: [thirdDiff])
         
-        let mergeResult = tracker.process(objectCache: objectCache)
+        let mergeResult = tracker.process(objectStore: objectStore)
         
         let object = mergeResult.insertedObjects.first!.value
         XCTAssert(object.properties["name"] == JSONValue.string("First"))
         XCTAssert(object.properties["age"] == JSONValue.int(23))
         
         // Insert object into cache so that we are forced to update in-place.
-        objectCache.insert(identifier: "1", object: object)
+        objectStore.insert(identifier: "1", object: object)
         
         XCTAssert(tracker.histories.first!.value.diffs.count == 2)
 
@@ -325,8 +336,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
     }
     
     func testRemoveExistingObject() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
         
         // Diffs just use date, not order of enqueue
         let now = Date()
@@ -334,17 +346,17 @@ class ObjectHistoryTrackerTests: XCTestCase {
         let firstDiff = ObjectDiff.insert(identifier: "1", timestamp: now, object: firstObject)
         
         tracker.enqueue(diffs: [firstDiff])
-        let firstMerge = tracker.process(objectCache: objectCache)
+        let firstMerge = tracker.process(objectStore: objectStore)
         
         let object = firstMerge.insertedObjects.first!.value
-        objectCache.insert(identifier: "1", object: object)
+        objectStore.insert(identifier: "1", object: object)
         
         
         // Now delete it
         let secondDiff = ObjectDiff.remove(identifier: "1", timestamp: now.addingTimeInterval(1.0))
         tracker.enqueue(diffs: [secondDiff])
 
-        let secondMerge = tracker.process(objectCache: objectCache)
+        let secondMerge = tracker.process(objectStore: objectStore)
         XCTAssert(secondMerge.totalChanges == 1)
         XCTAssert(secondMerge.removedObjects.count == 1)
     }

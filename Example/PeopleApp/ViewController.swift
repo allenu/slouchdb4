@@ -276,11 +276,13 @@ extension ViewController: NSTableViewDelegate {
 }
 
 extension ViewController: NSTextFieldDelegate {
-    func controlTextDidChange(_ obj: Notification) {
+    func controlTextDidChange(_ notification: Notification) {
+        if let textField = notification.object as? NSTextField,
+            textField == searchField {
+            let searchText = searchField.stringValue.lowercased()
+            print("##\(searchText)##")
 
-        let searchText = searchField.stringValue.lowercased()
-        print("##\(searchText)##")
-
-        self.search(text: searchText)
+            self.search(text: searchText)
+        }
     }
 }

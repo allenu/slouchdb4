@@ -66,23 +66,18 @@ public class Session {
     
     public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> Session? {
         // TODO: Move to Database() somehow ... but it exposes details of how
-        let objectCacheUrl = folderUrl.appendingPathComponent("object-cache.json")
+        let objectStoreUrl = folderUrl.appendingPathComponent("object-store.json")
         let objectHistoryTrackerUrl = folderUrl.appendingPathComponent("object-history.json")
         
-        if let objectCache = InMemObjectCache.create(from: objectCacheUrl),
+        if let objectStore = InMemObjectStore.create(from: objectStoreUrl),
             let objectHistoryStore = InMemObjectHistoryStore.create(from: objectHistoryTrackerUrl) {
             
-            let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStoring: objectHistoryStore)
-            let sortedIdentifiersUrl = folderUrl.appendingPathComponent("sorted-identifiers.json")
+            let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
-            if let data = try? Data(contentsOf: sortedIdentifiersUrl),
-                let sortedIdentifiers = try? decoder.decode([String].self, from: data) {
-                let database = Database(objectCache: objectCache, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: sortedIdentifiers)
-                
-                if let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
-                    return Session(database: database, journalManager: journalManager)
-                }
+            let database = Database(objectStore: objectStore, objectHistoryTracker: objectHistoryTracker)
+            if let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
+                return Session(database: database, journalManager: journalManager)
             }
         }
         

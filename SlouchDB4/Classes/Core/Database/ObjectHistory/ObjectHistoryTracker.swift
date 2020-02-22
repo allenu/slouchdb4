@@ -27,7 +27,7 @@ public class ObjectHistoryState {
     }
 }
 
-struct MergeResult {
+public struct MergeResult {
     let insertedObjects: [String : DatabaseObject]
     let removedObjects: [String]
     let updatedObjects: [String : DatabaseObject]
@@ -55,20 +55,20 @@ struct ObjectHistoryFileRepresentation: Codable {
 }
 
 public class ObjectHistoryTracker {
-    let objectHistoryStoring: ObjectHistoryStoring
+    let objectHistoryStore: ObjectHistoryStoring
     
-    public init(objectHistoryStoring: ObjectHistoryStoring) {
-        self.objectHistoryStoring = objectHistoryStoring
+    public init(objectHistoryStore: ObjectHistoryStoring) {
+        self.objectHistoryStore = objectHistoryStore
     }
     
     func save(to fileUrl: URL) {
-        objectHistoryStoring.save(to: fileUrl)
+        objectHistoryStore.save(to: fileUrl)
     }
     
     // This queues up the diffs provided and updates the histories of each object.
     public func enqueue(diffs: [ObjectDiff]) {
         diffs.forEach { diff in
-            if let objectHistoryState = objectHistoryStoring.objectHistoryState(for: diff.identifier) {
+            if let objectHistoryState = objectHistoryStore.objectHistoryState(for: diff.identifier) {
                 let originalDiffCount = objectHistoryState.diffs.count
 
                 if let lastDiff = objectHistoryState.diffs.last {
@@ -116,7 +116,7 @@ public class ObjectHistoryTracker {
                     // act on, so insert into pending updates
                     if let firstDiff = objectHistoryState.diffs.first,
                         case ObjectDiff.insert = firstDiff {
-                        objectHistoryStoring.insertPendingUpdate(for: diff.identifier)
+                        objectHistoryStore.insertPendingUpdate(for: diff.identifier)
                     } else {
                         // First diff is not an insert, so do not consider as pending update until then.
                     }
@@ -125,10 +125,10 @@ public class ObjectHistoryTracker {
                 // Doesn't exist yet, so create it
                 
                 let objectHistoryState = ObjectHistoryState(processingState: .replay, diffs: [diff])
-                objectHistoryStoring.update(objectHistoryState: objectHistoryState, for: diff.identifier)
+                objectHistoryStore.update(objectHistoryState: objectHistoryState, for: diff.identifier)
                 
                 if case ObjectDiff.insert = diff {
-                    objectHistoryStoring.insertPendingUpdate(for: diff.identifier)
+                    objectHistoryStore.insertPendingUpdate(for: diff.identifier)
                 } else {
                     // If this is NOT an insert operation and it's the first one, do not treat this as
                     // a pending update since we can't act on an object that doesn't have an insert
@@ -143,7 +143,7 @@ public class ObjectHistoryTracker {
     
     // Go through pending diffs and process the changes they would generate.
     // This mutates our internal state to consider those changes applied.
-    func process(objectCache: ObjectCache) -> MergeResult {
+    func process(objectStore: ObjectStore) -> MergeResult {
         var insertedObjects: [String : DatabaseObject] = [:]
         var removedObjects: [String] = []
         var updatedObjects: [String : DatabaseObject] = [:]
@@ -151,13 +151,13 @@ public class ObjectHistoryTracker {
         // TODO: Take the first N items in pendingUpdates and only process those
         // so that our list of inserted/removed/updated is a small subset (if needed).
         
-        let pendingUpdates = objectHistoryStoring.pendingUpdates()
+        let pendingUpdates = objectHistoryStore.pendingUpdates()
         
         pendingUpdates.forEach { identifier in
-            if let objectHistoryState = objectHistoryStoring.objectHistoryState(for: identifier) {
+            if let objectHistoryState = objectHistoryStore.objectHistoryState(for: identifier) {
                 switch objectHistoryState.processingState {
                 case .fastForward(let nextDiffIndex):
-                    if let object = objectCache.fetch(identifier: identifier) {
+                    if let object = objectStore.fetch(identifier: identifier) {
                         let justNewDiffs = Array(objectHistoryState.diffs.dropFirst(nextDiffIndex))
                         if let updatedObject = UpdatedDatabaseObject(from: justNewDiffs, originalObject: object) {
                             updatedObjects[identifier] = updatedObject
@@ -174,7 +174,7 @@ public class ObjectHistoryTracker {
                     }
                     
                 case .replay:
-                    if let oldObject = objectCache.fetch(identifier: identifier) {
+                    if let oldObject = objectStore.fetch(identifier: identifier) {
                         // Old object exists, so we'll need to replace it (or remove it)
                         _ = oldObject
                         if let newObject = CreateDatabaseObject(from: objectHistoryState.diffs) {
@@ -197,7 +197,7 @@ public class ObjectHistoryTracker {
                 assertionFailure()
             }
             
-            objectHistoryStoring.removePendingUpdate(for: identifier)
+            objectHistoryStore.removePendingUpdate(for: identifier)
         }
         
         return MergeResult(insertedObjects: insertedObjects,

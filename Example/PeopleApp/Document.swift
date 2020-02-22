@@ -20,9 +20,10 @@ class Document: NSDocument {
         // Add your subclass-specific initialization here.
         let localIdentifier = UUID().uuidString // TODO: ???
         
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
-        let database = Database(objectCache: objectCache, objectHistoryTracker: tracker, sortedIdentifiers: [])
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
+        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let directory = NSTemporaryDirectory()
         let subpath = UUID().uuidString

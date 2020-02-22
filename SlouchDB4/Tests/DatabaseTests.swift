@@ -12,9 +12,10 @@ import XCTest
 class DatabaseTests: XCTestCase {
 
     func testInsertDiff() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
-        let database = Database(objectCache: objectCache, objectHistoryTracker: tracker)
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
+        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let now = Date()
         let object = DatabaseObject(type: "person", properties: ["name" : .string("John")])
@@ -31,9 +32,10 @@ class DatabaseTests: XCTestCase {
     }
 
     func testUpdatedDiff() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
-        let database = Database(objectCache: objectCache, objectHistoryTracker: tracker)
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
+        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let now = Date()
         let object = DatabaseObject(type: "person", properties: ["name" : .string("John")])
@@ -64,9 +66,10 @@ class DatabaseTests: XCTestCase {
     }
 
     func testRemoveDiff() {
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
-        let database = Database(objectCache: objectCache, objectHistoryTracker: tracker)
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
+        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let now = Date()
         let object = DatabaseObject(type: "person", properties: ["name" : .string("John")])
@@ -95,10 +98,10 @@ class DatabaseTests: XCTestCase {
         let tempUrl = NSURL.fileURL(withPathComponents: [directory, pathName])!
         try! FileManager.default.createDirectory(at: tempUrl, withIntermediateDirectories: true, attributes: nil)
 
-        
-        let tracker = ObjectHistoryTracker()
-        let objectCache = InMemObjectCache()
-        let database = Database(objectCache: objectCache, objectHistoryTracker: tracker)
+        let objectHistoryStore = InMemObjectHistoryStore()
+        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let objectStore = InMemObjectStore()
+        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let now = Date()
         let object1 = DatabaseObject(type: "person", properties: ["name" : .string("Alice")])
@@ -111,23 +114,23 @@ class DatabaseTests: XCTestCase {
         // NOTE: Inserts are queued but not executed yet
         
         XCTAssert(tracker.pendingUpdates.count == 2)
-        XCTAssert(objectCache.fetch(identifier: "1") == nil)
-        XCTAssert(objectCache.fetch(identifier: "2") == nil)
+        XCTAssert(objectStore.fetch(identifier: "1") == nil)
+        XCTAssert(objectStore.fetch(identifier: "2") == nil)
 
         let trackerPath = tempUrl.appendingPathComponent("object-tracker.json")
         tracker.save(to: trackerPath)
-        let objectCachePath = tempUrl.appendingPathComponent("object-cache.json")
-        objectCache.save(to: objectCachePath)
+        let objectStorePath = tempUrl.appendingPathComponent("object-store.json")
+        objectStore.save(to: objectStorePath)
 
-        let newObjectCache = InMemObjectCache.create(from: objectCachePath)!
+        let newObjectStore = InMemObjectStore.create(from: objectStorePath)!
         let newTracker = ObjectHistoryTracker.create(from: trackerPath)!
         XCTAssert(newTracker.pendingUpdates.count == 2)
         let history1 = newTracker.histories["1"]!
         XCTAssert(history1.diffs.count == 1)
         
         XCTAssert(newTracker.histories["2"] != nil)
-        XCTAssert(newObjectCache.fetch(identifier: "1") == nil)
-        XCTAssert(newObjectCache.fetch(identifier: "2") == nil)
+        XCTAssert(newObjectStore.fetch(identifier: "1") == nil)
+        XCTAssert(newObjectStore.fetch(identifier: "2") == nil)
 
         database.mergeEnqueued()
 
@@ -138,16 +141,16 @@ class DatabaseTests: XCTestCase {
 
         let secondTrackerPath = tempUrl.appendingPathComponent("object-tracker.json")
         tracker.save(to: secondTrackerPath)
-        let secondObjectCachePath = tempUrl.appendingPathComponent("object-cache.json")
-        objectCache.save(to: secondObjectCachePath)
+        let secondObjectStorePath = tempUrl.appendingPathComponent("object-store.json")
+        objectStore.save(to: secondObjectStorePath)
         
-        let secondNewObjectCache = InMemObjectCache.create(from: secondObjectCachePath)!
+        let secondNewObjectStore = InMemObjectStore.create(from: secondObjectStorePath)!
         let secondNewTracker = ObjectHistoryTracker.create(from: secondTrackerPath)!
         XCTAssert(secondNewTracker.pendingUpdates.count == 0) // No pending updates this time!
         
         // TODO: more tests on the loaded data here
-        XCTAssert(secondNewObjectCache.fetch(identifier: "1") != nil)
-        XCTAssert(secondNewObjectCache.fetch(identifier: "2") != nil)
+        XCTAssert(secondNewObjectStore.fetch(identifier: "1") != nil)
+        XCTAssert(secondNewObjectStore.fetch(identifier: "2") != nil)
 
     }
     

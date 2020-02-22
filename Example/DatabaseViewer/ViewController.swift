@@ -31,10 +31,10 @@ class ViewController: NSViewController {
         let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
 
         // Nothing loaded yet. We'll just do a sync to pull it all in.
-        let objectCache = InMemObjectCache()
+        let objectStore = InMemObjectStore()
         let objectHistoryStore = InMemObjectHistoryStore()
-        let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStoring: objectHistoryStore)
-        let database = Database(objectCache: objectCache, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: [])
+        let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
+        let database = Database(objectStore: objectStore, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: [])
         
         let journalFileManager = JournalFileManager(workingFolderUrl: tempUrl)
         let remoteFileStore = FileSystemRemoteFileStore()

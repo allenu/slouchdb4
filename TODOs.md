@@ -1,5 +1,5 @@
 
-- [ ] Major redesign to handle external data storage and caching: Instead of implementing any data storage
+- [x] Major redesign to handle external data storage and caching: Instead of implementing any data storage
       or querying semantics, we should abstract all this to a protocol and make use of existing database
       tech like SQLite.
       - Store objects in external database
@@ -15,13 +15,19 @@
         - [x] Make ObjectHistoryTracker use ObjectHistoryStore
         - [x] ObjectHistoryTracker should have an ObjectHistoryStoring and not histories + pendingUpdates
 
-    - [ ] Create or modify ObjectCache abstraction to emphasize that it also does
-        - [ ] fetch()
-        - [ ] insert/remove/update
-        - [ ] cursor management (for SQLite this might just be storing an opaque pointer to
+    - [x] Create or modify ObjectCache abstraction to emphasize that it also does
+        - [x] Move Database code that deals with ObjectStore and cache-like business logic into InMemObjectStore
+            - [x] sortedIdentifiers
+            - [x] FetchCursor nextObjectOffset and predicate
+
+        - [x] fetch()
+        - [x] insert/remove/update
+        - [x] cursor management (for SQLite this might just be storing an opaque pointer to
               the sqlite cursor). Basic point is that client should get back a "cursor" and
               can use it to fetch more rows from the database. This way we can fetch in
               increments of rows (like 50 at a time) so we don't load everything all at once.
+
+- [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
 
 - [x] BUG: Database.fetch(of type:) doesn't actually use type when calling fetchMore()
     - [x] FetchCursor should include type
