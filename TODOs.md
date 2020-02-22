@@ -27,6 +27,10 @@
               can use it to fetch more rows from the database. This way we can fetch in
               increments of rows (like 50 at a time) so we don't load everything all at once.
 
+    - [ ] Support SQLite ObjectStore
+        - [ ] Remove insert() and just use replace() ?
+
+
 - [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
 
 - [x] BUG: Database.fetch(of type:) doesn't actually use type when calling fetchMore()
