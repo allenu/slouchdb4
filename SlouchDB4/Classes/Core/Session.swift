@@ -70,8 +70,9 @@ public class Session {
         let objectHistoryTrackerUrl = folderUrl.appendingPathComponent("object-history.json")
         
         if let objectCache = InMemObjectCache.create(from: objectCacheUrl),
-            let objectHistoryTracker = ObjectHistoryTracker.create(from: objectHistoryTrackerUrl) {
-
+            let objectHistoryStore = InMemObjectHistoryStore.create(from: objectHistoryTrackerUrl) {
+            
+            let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStoring: objectHistoryStore)
             let sortedIdentifiersUrl = folderUrl.appendingPathComponent("sorted-identifiers.json")
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .iso8601
@@ -101,11 +102,11 @@ public class Session {
         database.mergeEnqueued()
     }
     
-    public func fetch(of type: String) -> FetchResult {
+    public func fetch(of type: String? = nil) -> FetchResult {
         return database.fetch(of: type, limitCount: 100, predicate: nil)
     }
     
-    public func fetch(of type: String, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
+    public func fetch(of type: String? = nil, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
         return database.fetch(of: type, limitCount: limitCount, predicate: predicate)
     }
     

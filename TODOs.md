@@ -1,8 +1,63 @@
 
+- [ ] Major redesign to handle external data storage and caching: Instead of implementing any data storage
+      or querying semantics, we should abstract all this to a protocol and make use of existing database
+      tech like SQLite.
+      - Store objects in external database
+      - [x] Store object histories somewhere else !?
+        - or use the same database to store the list of ObjectDiffs?
+        - [x] Can also abstract object diff storage so that 
+            - all diffs go in one database (like SQLite)
+            - each diff has a foreign key to identify the object it applies to
+            - when new diffs come in, insert it into the database (if not there already)
+            - when applying new journal diffs in memory, fetch all diffs from the store in
+              timestamp order and play them back as necessary
+        - [x] Create ObjectHistoryStore
+        - [x] Make ObjectHistoryTracker use ObjectHistoryStore
+        - [x] ObjectHistoryTracker should have an ObjectHistoryStoring and not histories + pendingUpdates
+
+    - [ ] Create or modify ObjectCache abstraction to emphasize that it also does
+        - [ ] fetch()
+        - [ ] insert/remove/update
+        - [ ] cursor management (for SQLite this might just be storing an opaque pointer to
+              the sqlite cursor). Basic point is that client should get back a "cursor" and
+              can use it to fetch more rows from the database. This way we can fetch in
+              increments of rows (like 50 at a time) so we don't load everything all at once.
+
+- [x] BUG: Database.fetch(of type:) doesn't actually use type when calling fetchMore()
+    - [x] FetchCursor should include type
+    - [x] type should be optional (if not included, just fetch all types)
+
+- [ ] MAJOR design bug:
+    - [-] It's possible that if we process one journal at a time *fully* that we will hit an "update" command in one journal
+          before we actually encounter the *insert* command in another one. In such a scenario, we will not store the update
+          because the object doesn't exist yet...
+
+          -- See code in ObjectHistoryTracker.swift:244
+
+          - [ ] Write unit test to prove we handle this appropriately
+
+          Solution:
+          - if encountered an update or remove on an object that is not yet in the cache, create the entry
+            and just mark it as .replay processing state, add to pending updates
+          - when going through pending updates, if we encounter a set of diffs where
+            it is of type .replay AND the first diff is not .insert
+            => just ignore it and keep it in the pending updates
+
+            we may yet pick up the .insert in a future .journal that we process
+
+        => Turns out I do handle this properly. I just have bad journals that end up removing the same item multiple
+            times.
+            - [ ] Figure out how I should handle these ...
+                - One option is to just keep the journal around and have a field that says it's "deleted".
+                  However, this makes fetching slightly more complicated since I have to filter out those deleted entries.
+                - Another option is to store the identifiers of all those items already deleted, so then we can still assert
+                  if we try to delete an item that doesn't exist and we legitimately have not yet encountered it :shrug:
+
+
 - [ ] Update PeopleApp to handle pagination
-    - [ ] Assume N entries can appear on screen at a time and fetch 2N entries
-    - [ ] When we display entry 2N * 0.75, start fetching another N entries
-    - [ ] have a cached window of some M entries - enough below and above current window
+    - [x] Assume N entries can appear on screen at a time and fetch 2N entries
+    - [x] When we display entry 2N * 0.75, start fetching another N entries
+    - [x] have a cached window of some M entries - enough below and above current window
     - [ ] if we scroll up beyond the current cached entries, do a *reverse* fetch
 
 - [ ] Add "revese" fetch from a given cursor position

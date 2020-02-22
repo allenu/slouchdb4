@@ -57,8 +57,9 @@ func UpdatedDatabaseObject(from diffs: [ObjectDiff], originalObject: DatabaseObj
     
     diffs.forEach { diff in
         switch diff {
-        case .insert(_, _, let object):
-            assertionFailure("Did not expect an insert on an existing object.")
+        case .insert(let identifier, _, let object):
+            // assertionFailure("Did not expect an insert on an existing object.")
+            print("WARNING: \(identifier) Did not expect insert on existing object")
             // Fail gracefully and just replace it...
             updatedObject = object
             

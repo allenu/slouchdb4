@@ -55,95 +55,20 @@ struct ObjectHistoryFileRepresentation: Codable {
 }
 
 public class ObjectHistoryTracker {
-    var histories: [String : ObjectHistoryState]
+    let objectHistoryStoring: ObjectHistoryStoring
     
-    // Cache which objects need update so that process() is faster.
-    var pendingUpdates: Set<String>
-    
-    public init(histories: [String : ObjectHistoryState] = [:], pendingUpdates: [String] = []) {
-        self.histories = histories
-        self.pendingUpdates = Set<String>(pendingUpdates)
-    }
-    
-    static func create(from fileUrl: URL) -> ObjectHistoryTracker? {
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-
-        var objectHistoryTracker: ObjectHistoryTracker?
-        do {
-            let data = try Data(contentsOf: fileUrl)
-            let fileRepresentation: ObjectHistoryFileRepresentation = try decoder.decode(ObjectHistoryFileRepresentation.self, from: data)
-            var histories: [String : ObjectHistoryState] = [:]
-            
-            fileRepresentation.histories.forEach { keyValue in
-                let identifier = keyValue.key
-                let objectHistoryStateRepresentation = keyValue.value
-            
-                let processingState: ObjectHistoryProcessingState
-                switch objectHistoryStateRepresentation.processingState {
-                case .fastForward:
-                    processingState = .fastForward(nextDiffIndex: objectHistoryStateRepresentation.fastForwardNextDiffIndex)
-                    
-                case .replay:
-                    processingState = .replay
-                }
-                
-                let diffs: [ObjectDiff] = objectHistoryStateRepresentation.diffs.map { diffFileRepresentation in
-                    let objectDiff = ObjectDiff(from: diffFileRepresentation)
-                    return objectDiff
-                }
-                let history = ObjectHistoryState(processingState: processingState, diffs: diffs)
-                histories[identifier] = history
-            }
-            objectHistoryTracker = ObjectHistoryTracker(histories: histories, pendingUpdates: fileRepresentation.pendingUpdates)
-        } catch {
-            print("Error loading Tracker")
-        }
-        
-        return objectHistoryTracker
+    public init(objectHistoryStoring: ObjectHistoryStoring) {
+        self.objectHistoryStoring = objectHistoryStoring
     }
     
     func save(to fileUrl: URL) {
-        let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
-        
-        let pendingUpdates = Array(self.pendingUpdates)
-        var historiesFileRepresentation: [String : ObjectHistoryStateFileRepresentation] = [:]
-        self.histories.forEach { keyValue in
-            let identifier = keyValue.key
-            let history = keyValue.value
-            
-            let fastForwardNextDiffIndex: Int
-            let processingStateFileRepresentation: ObjectHistoryProcessingStateFileRepresentation
-            switch history.processingState {
-            case .fastForward(let nextDiffIndex):
-                processingStateFileRepresentation = .fastForward
-                fastForwardNextDiffIndex = nextDiffIndex
-                
-            case .replay:
-                processingStateFileRepresentation = .replay
-                fastForwardNextDiffIndex = 0
-            }
-            
-            let diffs = history.diffs.map { $0.jsonRepresentation }
-            let historyFileRepresentation = ObjectHistoryStateFileRepresentation(processingState: processingStateFileRepresentation,
-                                                                                 fastForwardNextDiffIndex: fastForwardNextDiffIndex,
-                                                                                 diffs: diffs)
-            historiesFileRepresentation[identifier] = historyFileRepresentation
-        }
-        let fileData = ObjectHistoryFileRepresentation(histories: historiesFileRepresentation, pendingUpdates: pendingUpdates)
-        do {
-            let data = try encoder.encode(fileData)
-            try data.write(to: fileUrl)
-        } catch {
-            print("Error saving")
-        }
+        objectHistoryStoring.save(to: fileUrl)
     }
     
     // This queues up the diffs provided and updates the histories of each object.
     public func enqueue(diffs: [ObjectDiff]) {
         diffs.forEach { diff in
-            if let objectHistoryState = histories[diff.identifier] {
+            if let objectHistoryState = objectHistoryStoring.objectHistoryState(for: diff.identifier) {
                 let originalDiffCount = objectHistoryState.diffs.count
 
                 if let lastDiff = objectHistoryState.diffs.last {
@@ -191,7 +116,7 @@ public class ObjectHistoryTracker {
                     // act on, so insert into pending updates
                     if let firstDiff = objectHistoryState.diffs.first,
                         case ObjectDiff.insert = firstDiff {
-                        pendingUpdates.insert(diff.identifier)
+                        objectHistoryStoring.insertPendingUpdate(for: diff.identifier)
                     } else {
                         // First diff is not an insert, so do not consider as pending update until then.
                     }
@@ -200,10 +125,10 @@ public class ObjectHistoryTracker {
                 // Doesn't exist yet, so create it
                 
                 let objectHistoryState = ObjectHistoryState(processingState: .replay, diffs: [diff])
-                histories[diff.identifier] = objectHistoryState
+                objectHistoryStoring.update(objectHistoryState: objectHistoryState, for: diff.identifier)
                 
                 if case ObjectDiff.insert = diff {
-                    pendingUpdates.insert(diff.identifier)
+                    objectHistoryStoring.insertPendingUpdate(for: diff.identifier)
                 } else {
                     // If this is NOT an insert operation and it's the first one, do not treat this as
                     // a pending update since we can't act on an object that doesn't have an insert
@@ -226,8 +151,10 @@ public class ObjectHistoryTracker {
         // TODO: Take the first N items in pendingUpdates and only process those
         // so that our list of inserted/removed/updated is a small subset (if needed).
         
+        let pendingUpdates = objectHistoryStoring.pendingUpdates()
+        
         pendingUpdates.forEach { identifier in
-            if let objectHistoryState = histories[identifier] {
+            if let objectHistoryState = objectHistoryStoring.objectHistoryState(for: identifier) {
                 switch objectHistoryState.processingState {
                 case .fastForward(let nextDiffIndex):
                     if let object = objectCache.fetch(identifier: identifier) {
@@ -235,13 +162,16 @@ public class ObjectHistoryTracker {
                         if let updatedObject = UpdatedDatabaseObject(from: justNewDiffs, originalObject: object) {
                             updatedObjects[identifier] = updatedObject
                         } else {
+                            print("WARNING: \(identifier) removed during ffwd")
                             removedObjects.append(identifier)
                         }
+                        assert(objectHistoryState.diffs.count > 0)
+                        objectHistoryState.processingState = .fastForward(nextDiffIndex: objectHistoryState.diffs.count)
                     } else {
-                        assertionFailure("Object not found in cache")
+                        //assertionFailure("Object not found in cache")
+                        print("WARNING: \(identifier) Encountered an update on an object that has not yet been inserted. Will reset to .replay and hope the insert happens first.")
+                        objectHistoryState.processingState = .replay
                     }
-                    assert(objectHistoryState.diffs.count > 0)
-                    objectHistoryState.processingState = .fastForward(nextDiffIndex: objectHistoryState.diffs.count)
                     
                 case .replay:
                     if let oldObject = objectCache.fetch(identifier: identifier) {
@@ -250,6 +180,7 @@ public class ObjectHistoryTracker {
                         if let newObject = CreateDatabaseObject(from: objectHistoryState.diffs) {
                             updatedObjects[identifier] = newObject
                         } else {
+                            print("WARNING: \(identifier) removed during replay")
                             removedObjects.append(identifier)
                         }
                     } else {
@@ -265,13 +196,12 @@ public class ObjectHistoryTracker {
             } else {
                 assertionFailure()
             }
+            
+            objectHistoryStoring.removePendingUpdate(for: identifier)
         }
-        
-        pendingUpdates.removeAll()
         
         return MergeResult(insertedObjects: insertedObjects,
                            removedObjects: removedObjects,
                            updatedObjects: updatedObjects)
     }
-    
 }

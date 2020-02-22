@@ -9,8 +9,8 @@
 import Foundation
 
 public class JournalFileReader: JournalReadable {
-    static let readBufferSize: Int = 512 // 64*1024 // 64k read buffer
-    static let lowBufferSize: Int = 256 // 4*1024  // If we have under 4k of bytes, fetch to fill it up
+    static let readBufferSize: Int = 64*1024 // 64k read buffer
+    static let lowBufferSize: Int = 4*1024  // If we have under 4k of bytes, fetch to fill it up
     // NOTE: The assumption is that 4k is big enough to hold one diff. If not, then we have a problem
     // because we may never find a newline in the current buffer.
     

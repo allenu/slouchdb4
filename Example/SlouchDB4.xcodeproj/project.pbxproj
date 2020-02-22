@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		0F68DA59B6F3D4A1F4C78088 /* Pods_DatabaseViewer.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 31BA6D4758B741E9314D89C7 /* Pods_DatabaseViewer.framework */; };
 		10E54F1407042B580246421A /* Pods_SlouchDB4_Tests.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 4643EA0D706F0CBA3E0C1F7E /* Pods_SlouchDB4_Tests.framework */; };
 		35CDF6626078E857C1065E07 /* Pods_PeopleApp.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = B3C030B8B94B3E46494E1727 /* Pods_PeopleApp.framework */; };
 		607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 607FACD51AFB9204008FA782 /* AppDelegate.swift */; };
@@ -23,6 +24,11 @@
 		B71189B123E5FFCA00D29302 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B71189AF23E5FFCA00D29302 /* Main.storyboard */; };
 		B71189B823E6004500D29302 /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189B723E6004500D29302 /* Person.swift */; };
 		B71189C123E749B200D29302 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
+		B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA99223F877CD00BB3B87 /* AppDelegate.swift */; };
+		B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA99423F877CD00BB3B87 /* ViewController.swift */; };
+		B76BA99723F877CF00BB3B87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B76BA99623F877CF00BB3B87 /* Assets.xcassets */; };
+		B76BA99A23F877CF00BB3B87 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B76BA99823F877CF00BB3B87 /* Main.storyboard */; };
+		B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -38,7 +44,9 @@
 /* Begin PBXFileReference section */
 		1E432C54FB3C20CAB9791236 /* Pods-PeopleApp.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PeopleApp.release.xcconfig"; path = "Target Support Files/Pods-PeopleApp/Pods-PeopleApp.release.xcconfig"; sourceTree = "<group>"; };
 		25CA6DB39C7BDC0C478D0F3E /* Pods-PeopleApp.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-PeopleApp.debug.xcconfig"; path = "Target Support Files/Pods-PeopleApp/Pods-PeopleApp.debug.xcconfig"; sourceTree = "<group>"; };
+		26D2BBE171F950C0D4A7A19A /* Pods-DatabaseViewer.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DatabaseViewer.debug.xcconfig"; path = "Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer.debug.xcconfig"; sourceTree = "<group>"; };
 		2B9DF7F37BA338ACA313A81E /* Pods-SlouchDB4_Example.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4_Example.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4_Example/Pods-SlouchDB4_Example.debug.xcconfig"; sourceTree = "<group>"; };
+		31BA6D4758B741E9314D89C7 /* Pods_DatabaseViewer.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_DatabaseViewer.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		43CCC84507B51DE435032EF1 /* Pods_SlouchDB4_Example.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SlouchDB4_Example.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		4643EA0D706F0CBA3E0C1F7E /* Pods_SlouchDB4_Tests.framework */ = {isa = PBXFileReference; explicitFileType = wrapper.framework; includeInIndex = 0; path = Pods_SlouchDB4_Tests.framework; sourceTree = BUILT_PRODUCTS_DIR; };
 		46F73181587B82CEF38E1497 /* README.md */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = net.daringfireball.markdown; name = README.md; path = ../README.md; sourceTree = "<group>"; };
@@ -66,6 +74,14 @@
 		B71189B323E5FFCA00D29302 /* PeopleApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PeopleApp.entitlements; sourceTree = "<group>"; };
 		B71189B723E6004500D29302 /* Person.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Person.swift; sourceTree = "<group>"; };
 		B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemRemoteFileStore.swift; sourceTree = "<group>"; };
+		B76BA99023F877CD00BB3B87 /* DatabaseViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DatabaseViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		B76BA99223F877CD00BB3B87 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
+		B76BA99423F877CD00BB3B87 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
+		B76BA99623F877CF00BB3B87 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		B76BA99923F877CF00BB3B87 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		B76BA99B23F877CF00BB3B87 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		B76BA99C23F877CF00BB3B87 /* DatabaseViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DatabaseViewer.entitlements; sourceTree = "<group>"; };
+		C6A24016A8CA84D3258A4D71 /* Pods-DatabaseViewer.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DatabaseViewer.release.xcconfig"; path = "Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer.release.xcconfig"; sourceTree = "<group>"; };
 		CB798225DE886D3EAE22FA89 /* Pods-SlouchDB4_Example.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4_Example.release.xcconfig"; path = "Target Support Files/Pods-SlouchDB4_Example/Pods-SlouchDB4_Example.release.xcconfig"; sourceTree = "<group>"; };
 		E34545CB02C50D7FCF9233DA /* Pods-SlouchDB4_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4_Tests.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4_Tests/Pods-SlouchDB4_Tests.debug.xcconfig"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -95,6 +111,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B76BA98D23F877CD00BB3B87 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				0F68DA59B6F3D4A1F4C78088 /* Pods_DatabaseViewer.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
@@ -107,6 +131,8 @@
 				962F2360638FE9554C29D7E5 /* Pods-SlouchDB4_Tests.release.xcconfig */,
 				25CA6DB39C7BDC0C478D0F3E /* Pods-PeopleApp.debug.xcconfig */,
 				1E432C54FB3C20CAB9791236 /* Pods-PeopleApp.release.xcconfig */,
+				26D2BBE171F950C0D4A7A19A /* Pods-DatabaseViewer.debug.xcconfig */,
+				C6A24016A8CA84D3258A4D71 /* Pods-DatabaseViewer.release.xcconfig */,
 			);
 			path = Pods;
 			sourceTree = "<group>";
@@ -117,6 +143,7 @@
 				43CCC84507B51DE435032EF1 /* Pods_SlouchDB4_Example.framework */,
 				4643EA0D706F0CBA3E0C1F7E /* Pods_SlouchDB4_Tests.framework */,
 				B3C030B8B94B3E46494E1727 /* Pods_PeopleApp.framework */,
+				31BA6D4758B741E9314D89C7 /* Pods_DatabaseViewer.framework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -128,6 +155,7 @@
 				607FACD21AFB9204008FA782 /* Example for SlouchDB4 */,
 				607FACE81AFB9204008FA782 /* Tests */,
 				B71189A623E5FFC700D29302 /* PeopleApp */,
+				B76BA99123F877CD00BB3B87 /* DatabaseViewer */,
 				607FACD11AFB9204008FA782 /* Products */,
 				058AE85208FACE0E88D3D426 /* Pods */,
 				4DEB9ABAE6A1F5195F03300A /* Frameworks */,
@@ -140,6 +168,7 @@
 				607FACD01AFB9204008FA782 /* SlouchDB4_Example.app */,
 				607FACE51AFB9204008FA782 /* SlouchDB4_Tests.xctest */,
 				B71189A523E5FFC700D29302 /* PeopleApp.app */,
+				B76BA99023F877CD00BB3B87 /* DatabaseViewer.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -209,6 +238,19 @@
 			path = PeopleApp;
 			sourceTree = "<group>";
 		};
+		B76BA99123F877CD00BB3B87 /* DatabaseViewer */ = {
+			isa = PBXGroup;
+			children = (
+				B76BA99223F877CD00BB3B87 /* AppDelegate.swift */,
+				B76BA99423F877CD00BB3B87 /* ViewController.swift */,
+				B76BA99623F877CF00BB3B87 /* Assets.xcassets */,
+				B76BA99823F877CF00BB3B87 /* Main.storyboard */,
+				B76BA99B23F877CF00BB3B87 /* Info.plist */,
+				B76BA99C23F877CF00BB3B87 /* DatabaseViewer.entitlements */,
+			);
+			path = DatabaseViewer;
+			sourceTree = "<group>";
+		};
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
@@ -269,12 +311,32 @@
 			productReference = B71189A523E5FFC700D29302 /* PeopleApp.app */;
 			productType = "com.apple.product-type.application";
 		};
+		B76BA98F23F877CD00BB3B87 /* DatabaseViewer */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = B76BA99F23F877CF00BB3B87 /* Build configuration list for PBXNativeTarget "DatabaseViewer" */;
+			buildPhases = (
+				61B21E313D75583951E2BA0A /* [CP] Check Pods Manifest.lock */,
+				B76BA98C23F877CD00BB3B87 /* Sources */,
+				B76BA98D23F877CD00BB3B87 /* Frameworks */,
+				B76BA98E23F877CD00BB3B87 /* Resources */,
+				4284353D6459F5F3FCD8DDBE /* [CP] Embed Pods Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = DatabaseViewer;
+			productName = DatabaseViewer;
+			productReference = B76BA99023F877CD00BB3B87 /* DatabaseViewer.app */;
+			productType = "com.apple.product-type.application";
+		};
 /* End PBXNativeTarget section */
 
 /* Begin PBXProject section */
 		607FACC81AFB9204008FA782 /* Project object */ = {
 			isa = PBXProject;
 			attributes = {
+				DefaultBuildSystemTypeForWorkspace = Original;
 				LastSwiftUpdateCheck = 1130;
 				LastUpgradeCheck = 1130;
 				ORGANIZATIONNAME = CocoaPods;
@@ -289,6 +351,11 @@
 						TestTargetID = 607FACCF1AFB9204008FA782;
 					};
 					B71189A423E5FFC700D29302 = {
+						CreatedOnToolsVersion = 11.3;
+						DevelopmentTeam = NQ4H433LH4;
+						ProvisioningStyle = Automatic;
+					};
+					B76BA98F23F877CD00BB3B87 = {
 						CreatedOnToolsVersion = 11.3;
 						DevelopmentTeam = NQ4H433LH4;
 						ProvisioningStyle = Automatic;
@@ -311,6 +378,7 @@
 				607FACCF1AFB9204008FA782 /* SlouchDB4_Example */,
 				607FACE41AFB9204008FA782 /* SlouchDB4_Tests */,
 				B71189A423E5FFC700D29302 /* PeopleApp */,
+				B76BA98F23F877CD00BB3B87 /* DatabaseViewer */,
 			);
 		};
 /* End PBXProject section */
@@ -342,6 +410,15 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B76BA98E23F877CD00BB3B87 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B76BA99723F877CF00BB3B87 /* Assets.xcassets in Resources */,
+				B76BA99A23F877CF00BB3B87 /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXShellScriptBuildPhase section */
@@ -361,6 +438,48 @@
 			);
 			outputPaths = (
 				"$(DERIVED_FILE_DIR)/Pods-SlouchDB4_Example-checkManifestLockResult.txt",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "diff \"${PODS_PODFILE_DIR_PATH}/Podfile.lock\" \"${PODS_ROOT}/Manifest.lock\" > /dev/null\nif [ $? != 0 ] ; then\n    # print error to STDERR\n    echo \"error: The sandbox is not in sync with the Podfile.lock. Run 'pod install' or update your CocoaPods installation.\" >&2\n    exit 1\nfi\n# This output is used by Xcode 'outputs' to avoid re-running this script phase.\necho \"SUCCESS\" > \"${SCRIPT_OUTPUT_FILE_0}\"\n";
+			showEnvVarsInLog = 0;
+		};
+		4284353D6459F5F3FCD8DDBE /* [CP] Embed Pods Frameworks */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"${PODS_ROOT}/Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer-frameworks.sh",
+				"${BUILT_PRODUCTS_DIR}/BTree-macOS/BTree.framework",
+				"${BUILT_PRODUCTS_DIR}/SlouchDB4-macOS/SlouchDB4.framework",
+			);
+			name = "[CP] Embed Pods Frameworks";
+			outputPaths = (
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BTree.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SlouchDB4.framework",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "\"${PODS_ROOT}/Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer-frameworks.sh\"\n";
+			showEnvVarsInLog = 0;
+		};
+		61B21E313D75583951E2BA0A /* [CP] Check Pods Manifest.lock */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"${PODS_PODFILE_DIR_PATH}/Podfile.lock",
+				"${PODS_ROOT}/Manifest.lock",
+			);
+			name = "[CP] Check Pods Manifest.lock";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(DERIVED_FILE_DIR)/Pods-DatabaseViewer-checkManifestLockResult.txt",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -483,6 +602,16 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		B76BA98C23F877CD00BB3B87 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */,
+				B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */,
+				B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXTargetDependency section */
@@ -514,6 +643,14 @@
 			isa = PBXVariantGroup;
 			children = (
 				B71189B023E5FFCA00D29302 /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		B76BA99823F877CF00BB3B87 /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				B76BA99923F877CF00BB3B87 /* Base */,
 			);
 			name = Main.storyboard;
 			sourceTree = "<group>";
@@ -755,6 +892,65 @@
 			};
 			name = Release;
 		};
+		B76BA99D23F877CF00BB3B87 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 26D2BBE171F950C0D4A7A19A /* Pods-DatabaseViewer.debug.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DatabaseViewer/DatabaseViewer.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				DEVELOPMENT_TEAM = NQ4H433LH4;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = DatabaseViewer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ussherpress.DatabaseViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		B76BA99E23F877CF00BB3B87 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = C6A24016A8CA84D3258A4D71 /* Pods-DatabaseViewer.release.xcconfig */;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CODE_SIGN_ENTITLEMENTS = DatabaseViewer/DatabaseViewer.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = NQ4H433LH4;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				INFOPLIST_FILE = DatabaseViewer/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				MACOSX_DEPLOYMENT_TARGET = 10.14;
+				MTL_FAST_MATH = YES;
+				PRODUCT_BUNDLE_IDENTIFIER = com.ussherpress.DatabaseViewer;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
@@ -790,6 +986,15 @@
 			buildConfigurations = (
 				B71189B523E5FFCA00D29302 /* Debug */,
 				B71189B623E5FFCA00D29302 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		B76BA99F23F877CF00BB3B87 /* Build configuration list for PBXNativeTarget "DatabaseViewer" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				B76BA99D23F877CF00BB3B87 /* Debug */,
+				B76BA99E23F877CF00BB3B87 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;

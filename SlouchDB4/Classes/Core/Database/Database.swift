@@ -17,6 +17,7 @@ public enum ObjectCountResult {
 public struct FetchCursor {
     // TODO: whichIndex
     // - identifier, date created, date last modified ?
+    public let type: String?
     public let nextObjectOffset: Int
     public let noMoreResults: Bool
     let predicate: ((FetchedDatabaseObject) -> Bool)?
@@ -102,8 +103,8 @@ public class Database {
         }
     }
     
-    public func fetch(of type: String, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
-        let cursor = FetchCursor(nextObjectOffset: 0, noMoreResults: false, predicate: predicate)
+    public func fetch(of type: String? = nil, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
+        let cursor = FetchCursor(type: type, nextObjectOffset: 0, noMoreResults: false, predicate: predicate)
         return fetchMore(cursor: cursor, limitCount: limitCount)
     }
     
@@ -116,7 +117,9 @@ public class Database {
             
             let shouldIncludeObject: Bool
             if let object = self.fetch(identifier: nextIdentifier) {
-                if let predicate = cursor.predicate {
+                if let type = cursor.type, object.type != type {
+                    shouldIncludeObject = false
+                } else if let predicate = cursor.predicate {
                     shouldIncludeObject = predicate(FetchedDatabaseObject(identifier: nextIdentifier, object: object))
                 } else {
                     shouldIncludeObject = true
@@ -134,7 +137,7 @@ public class Database {
         
         let noMoreResults = (currentPosition == sortedIdentifiers.count)
         
-        let cursor = FetchCursor(nextObjectOffset: currentPosition, noMoreResults: noMoreResults, predicate: cursor.predicate)
+        let cursor = FetchCursor(type: cursor.type, nextObjectOffset: currentPosition, noMoreResults: noMoreResults, predicate: cursor.predicate)
         let fetchResult = FetchResult(results: collectedItems, cursor: cursor)
         return fetchResult
     }
