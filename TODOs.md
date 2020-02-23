@@ -1,4 +1,17 @@
 
+- [x] Refactor so that Session doesn't talk to Database at all. Instead it should delegate out
+      the database requests to the client, who can then make those requests on its behalf.
+    - [x] Get rid of "Database" class
+        - [x] Move its business logic up to "Session"
+        - [x] Get rid of ObjectStore from Database/Session
+
+- [ ] Support SQLite ObjectStore
+    - [ ] Remove insert() and just use replace() ?
+
+- [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
+    - Is it b/c pending updates aren't saved? And when you quit and then later re-load, it's not seen as a pending
+      update?
+
 - [x] Major redesign to handle external data storage and caching: Instead of implementing any data storage
       or querying semantics, we should abstract all this to a protocol and make use of existing database
       tech like SQLite.
@@ -26,12 +39,6 @@
               the sqlite cursor). Basic point is that client should get back a "cursor" and
               can use it to fetch more rows from the database. This way we can fetch in
               increments of rows (like 50 at a time) so we don't load everything all at once.
-
-    - [ ] Support SQLite ObjectStore
-        - [ ] Remove insert() and just use replace() ?
-
-
-- [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
 
 - [x] BUG: Database.fetch(of type:) doesn't actually use type when calling fetchMore()
     - [x] FetchCursor should include type

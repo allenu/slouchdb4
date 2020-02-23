@@ -179,7 +179,7 @@ class ViewController: NSViewController {
                     // Do search in background since it might take a while
                     DispatchQueue.global(qos: .userInitiated).async {
                             
-                        let results = document.session.fetch(of: "person", limitCount: 100, predicate: { fetchedObject in
+                        let results = document.fetch(of: "person", limitCount: 100, predicate: { fetchedObject in
                             let person = Person.create(from: fetchedObject.identifier, databaseObject: fetchedObject.object)
                             return person.name.lowercased().contains(text)
                         }).results.map { Person.create(from: $0.identifier, databaseObject: $0.object) }

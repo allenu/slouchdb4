@@ -14,6 +14,8 @@ class ViewController: NSViewController {
     var remoteFolder: URL?
     let itemsPerPage: Int = 10
     
+    let objectStore = InMemObjectStore()
+    
     // Our best guess of number of items in the database
     var numberOfItems: Int = 0
     var fetchedObjects: [FetchedDatabaseObject] = []
@@ -31,10 +33,7 @@ class ViewController: NSViewController {
         let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
 
         // Nothing loaded yet. We'll just do a sync to pull it all in.
-        let objectStore = InMemObjectStore()
         let objectHistoryStore = InMemObjectHistoryStore()
-        let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
-        let database = Database(objectStore: objectStore, objectHistoryTracker: objectHistoryTracker, sortedIdentifiers: [])
         
         let journalFileManager = JournalFileManager(workingFolderUrl: tempUrl)
         let remoteFileStore = FileSystemRemoteFileStore()
@@ -43,7 +42,9 @@ class ViewController: NSViewController {
         let storedState = JournalManagerStoredState(localIdentifier: "local-unused", journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
         
-        let session = Session(database: database, journalManager: journalManager)
+        let session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+        session.delegate = self
+        session.dataSource = self
         
         // Sync it ...
         session.sync(completion: { response in
@@ -64,7 +65,7 @@ class ViewController: NSViewController {
                     
                     // Go ahead and fetch more items
                     DispatchQueue.global().async {
-                        let result = session.fetch(of: "card", limitCount: self.itemsPerPage * 2)
+                        let result = self.objectStore.fetch(of: "card", limitCount: self.itemsPerPage * 2)
                         
                         DispatchQueue.main.async {
                             self.numberOfItems = result.results.count
@@ -122,7 +123,7 @@ class ViewController: NSViewController {
                     // More to fetch, so let's do it
                     isFetching = true
                     DispatchQueue.global().async {
-                        let result = session.fetchMore(cursor: cursor, limitCount: self.itemsPerPage)
+                        let result = self.objectStore.fetchMore(cursor: cursor, limitCount: self.itemsPerPage)
 
                         DispatchQueue.main.async {
                             let oldCount = self.fetchedObjects.count
@@ -208,3 +209,14 @@ extension ViewController: NSTableViewDataSource {
     }
 }
 
+extension ViewController: SessionDelegate {
+    func session(_ session: Session, didRequestMerge mergeResult: MergeResult) {
+        objectStore.apply(mergeResult: mergeResult)
+    }
+}
+
+extension ViewController: SessionDataSource {
+    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject? {
+        return objectStore.fetch(identifier: identifier)
+    }
+}

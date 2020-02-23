@@ -49,64 +49,56 @@ public enum SessionSyncResponse {
     case failure
 }
 
-// Session provides a nice wrapper around the diff-based Database. It also
-// stores local changes to its own journal and keeps track of any external
-// journals.
+public protocol SessionDelegate: class {
+    func session(_ session: Session, didRequestMerge mergeResult: MergeResult)
+}
+
+public protocol SessionDataSource: class {
+    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject?
+}
+
+// Session does the following:
+// - stores diffs on local Insert, Update, Delete requests into local journal
+// - coordinates "merging" remote changes into local object history
+// -
+//
 public class Session {
-    let database: Database
     let journalManager: JournalManaging
+    let objectHistoryTracker: ObjectHistoryTracker
+    
+    public weak var delegate: SessionDelegate?
+    public weak var dataSource: SessionDataSource?
+
     public var localIdentifier: String {
         return journalManager.localIdentifier
     }
     
-    public init(database: Database, journalManager: JournalManaging) {
+    public init(journalManager: JournalManaging, objectHistoryStore: ObjectHistoryStoring) {
         self.journalManager = journalManager
-        self.database = database
+        self.objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
     }
     
     public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> Session? {
-        // TODO: Move to Database() somehow ... but it exposes details of how
-        let objectStoreUrl = folderUrl.appendingPathComponent("object-store.json")
-        let objectHistoryTrackerUrl = folderUrl.appendingPathComponent("object-history.json")
-        
-        if let objectStore = InMemObjectStore.create(from: objectStoreUrl),
-            let objectHistoryStore = InMemObjectHistoryStore.create(from: objectHistoryTrackerUrl) {
-            
-            let objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
-            let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
-            let database = Database(objectStore: objectStore, objectHistoryTracker: objectHistoryTracker)
-            if let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
-                return Session(database: database, journalManager: journalManager)
-            }
+        if let objectHistoryStore = InMemObjectHistoryStore.create(from: folderUrl),
+            let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
+            return Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
         }
         
         return nil
     }
     
     public func save(to folderUrl: URL) {
-        database.save(to: folderUrl)
+        objectHistoryTracker.save(to: folderUrl)
         journalManager.save(to: folderUrl)
     }
     
     func enqueue(diffs: [ObjectDiff]) {
-        database.enqueue(diffs: diffs)
+        objectHistoryTracker.enqueue(diffs: diffs)
     }
     
     func mergeEnqueued() {
-        database.mergeEnqueued()
-    }
-    
-    public func fetch(of type: String? = nil) -> FetchResult {
-        return database.fetch(of: type, limitCount: 100, predicate: nil)
-    }
-    
-    public func fetch(of type: String? = nil, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
-        return database.fetch(of: type, limitCount: limitCount, predicate: predicate)
-    }
-    
-    public func fetchMore(cursor: FetchCursor, limitCount: Int = Database.maxFetchCount) -> FetchResult {
-        return database.fetchMore(cursor: cursor, limitCount: limitCount)
+        let mergeResult = objectHistoryTracker.process(objectProvider: self)
+        delegate?.session(self, didRequestMerge: mergeResult)
     }
     
     // Local database changes
@@ -180,5 +172,11 @@ public class Session {
                 }
             }
         })
+    }
+}
+
+extension Session: ObjectProvider {
+    public func object(for identifier: String) -> DatabaseObject? {
+        return dataSource?.session(self, objectFor: identifier)
     }
 }

@@ -7,8 +7,37 @@
 
 import Foundation
 import BTree
+import SlouchDB4
 
-public class InMemObjectStore: ObjectStore {
+public enum ObjectCountResult {
+    case exactly(Int)
+    case moreThan(Int)
+}
+
+public struct FetchCursor {
+    // TODO: whichIndex
+    // - identifier, date created, date last modified ?
+    public let type: String?
+    public let nextObjectOffset: Int
+    public let noMoreResults: Bool
+    let predicate: ((FetchedDatabaseObject) -> Bool)?
+}
+
+public struct FetchedDatabaseObject {
+    public let identifier: String
+    public let object: DatabaseObject
+}
+
+public struct FetchResult {
+    public let results: [FetchedDatabaseObject]
+    public let cursor: FetchCursor
+}
+
+public typealias ObjectDictionary = [String : DatabaseObject]
+
+public class InMemObjectStore {
+    public static let maxFetchCount: Int = 100
+    
     private var objects: ObjectDictionary
 
     // WIP: In-mem sorted list of all item indices
@@ -111,13 +140,12 @@ public class InMemObjectStore: ObjectStore {
         return objects[identifier]
     }
     
-
-    public func fetch(of type: String? = nil, limitCount: Int = Database.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
+    public func fetch(of type: String? = nil, limitCount: Int = InMemObjectStore.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
         let cursor = FetchCursor(type: type, nextObjectOffset: 0, noMoreResults: false, predicate: predicate)
         return fetchMore(cursor: cursor, limitCount: limitCount)
     }
     
-    public func fetchMore(cursor: FetchCursor, limitCount: Int = Database.maxFetchCount) -> FetchResult {
+    public func fetchMore(cursor: FetchCursor, limitCount: Int = InMemObjectStore.maxFetchCount) -> FetchResult {
         // If we've gone past the index by now, stop
         var currentPosition = cursor.nextObjectOffset
         var collectedItems: [FetchedDatabaseObject] = []

@@ -34,8 +34,6 @@ as the sync mechanism.
   s.source_files = 'SlouchDB4/Classes/**/*'
   s.swift_versions = ['5.0']
 
-  s.dependency 'BTree'
-
   s.test_spec 'Tests' do |test_spec|
     test_spec.source_files = 'SlouchDB4/Tests/*.swift'
     # test_spec.dependency 'OCMock' # This dependency will only be linked with your tests.

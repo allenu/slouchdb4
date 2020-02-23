@@ -7,11 +7,14 @@
 //
 
 import Foundation
-import BTree
 
 enum ObjectHistoryProcessingState {
     case fastForward(nextDiffIndex: Int)
     case replay
+}
+
+public protocol ObjectProvider: class {
+    func object(for identifier: String) -> DatabaseObject?
 }
 
 typealias ObjectHistory =  [ObjectDiff]
@@ -28,11 +31,11 @@ public class ObjectHistoryState {
 }
 
 public struct MergeResult {
-    let insertedObjects: [String : DatabaseObject]
-    let removedObjects: [String]
-    let updatedObjects: [String : DatabaseObject]
+    public let insertedObjects: [String : DatabaseObject]
+    public let removedObjects: [String]
+    public let updatedObjects: [String : DatabaseObject]
     
-    var totalChanges: Int {
+    public var totalChanges: Int {
         return insertedObjects.count + removedObjects.count + updatedObjects.count
     }
 }
@@ -61,8 +64,8 @@ public class ObjectHistoryTracker {
         self.objectHistoryStore = objectHistoryStore
     }
     
-    func save(to fileUrl: URL) {
-        objectHistoryStore.save(to: fileUrl)
+    func save(to folderUrl: URL) {
+        objectHistoryStore.save(to: folderUrl)
     }
     
     // This queues up the diffs provided and updates the histories of each object.
@@ -143,7 +146,7 @@ public class ObjectHistoryTracker {
     
     // Go through pending diffs and process the changes they would generate.
     // This mutates our internal state to consider those changes applied.
-    func process(objectStore: ObjectStore) -> MergeResult {
+    func process(objectProvider: ObjectProvider) -> MergeResult {
         var insertedObjects: [String : DatabaseObject] = [:]
         var removedObjects: [String] = []
         var updatedObjects: [String : DatabaseObject] = [:]
@@ -157,7 +160,7 @@ public class ObjectHistoryTracker {
             if let objectHistoryState = objectHistoryStore.objectHistoryState(for: identifier) {
                 switch objectHistoryState.processingState {
                 case .fastForward(let nextDiffIndex):
-                    if let object = objectStore.fetch(identifier: identifier) {
+                    if let object = objectProvider.object(for: identifier) {
                         let justNewDiffs = Array(objectHistoryState.diffs.dropFirst(nextDiffIndex))
                         if let updatedObject = UpdatedDatabaseObject(from: justNewDiffs, originalObject: object) {
                             updatedObjects[identifier] = updatedObject
@@ -174,7 +177,7 @@ public class ObjectHistoryTracker {
                     }
                     
                 case .replay:
-                    if let oldObject = objectStore.fetch(identifier: identifier) {
+                    if let oldObject = objectProvider.object(for: identifier) {
                         // Old object exists, so we'll need to replace it (or remove it)
                         _ = oldObject
                         if let newObject = CreateDatabaseObject(from: objectHistoryState.diffs) {

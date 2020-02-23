@@ -7,12 +7,12 @@
 		<key>DatabaseViewer.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>12</integer>
+			<integer>11</integer>
 		</dict>
 		<key>PeopleApp.xcscheme_^#shared#^_</key>
 		<dict>
 			<key>orderHint</key>
-			<integer>11</integer>
+			<integer>10</integer>
 		</dict>
 		<key>SlouchDB4-Example.xcscheme_^#shared#^_</key>
 		<dict>

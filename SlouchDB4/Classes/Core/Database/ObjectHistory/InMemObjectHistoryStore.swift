@@ -19,12 +19,13 @@ public class InMemObjectHistoryStore: ObjectHistoryStoring {
         self._pendingUpdates = Set<String>(pendingUpdates)
     }
 
-    public static func create(from fileUrl: URL) -> ObjectHistoryStoring? {
+    public static func create(from folderUrl: URL) -> ObjectHistoryStoring? {
         let decoder = JSONDecoder()
         decoder.dateDecodingStrategy = .iso8601
 
         var objectHistoryStore: ObjectHistoryStoring?
         do {
+            let fileUrl = folderUrl.appendingPathComponent("object-history.json")
             let data = try Data(contentsOf: fileUrl)
             let fileRepresentation: ObjectHistoryFileRepresentation = try decoder.decode(ObjectHistoryFileRepresentation.self, from: data)
             var histories: [String : ObjectHistoryState] = [:]
@@ -56,7 +57,9 @@ public class InMemObjectHistoryStore: ObjectHistoryStoring {
         return objectHistoryStore
     }
     
-    public func save(to fileUrl: URL) {
+    public func save(to folderUrl: URL) {
+        let fileUrl = folderUrl.appendingPathComponent("object-history.json")
+        
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
         

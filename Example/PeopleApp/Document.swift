@@ -12,18 +12,15 @@ import SlouchDB4
 class Document: NSDocument {
     var session: Session
     
-    var numEntries: Int = 1
     var fileSystemRemoteFileStore: FileSystemRemoteFileStore
     let journalFileManager: JournalFileManager
+    var objectStore = InMemObjectStore()
     
     override init() {
         // Add your subclass-specific initialization here.
         let localIdentifier = UUID().uuidString // TODO: ???
         
         let objectHistoryStore = InMemObjectHistoryStore()
-        let tracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
-        let objectStore = InMemObjectStore()
-        let database = Database(objectStore: objectStore, objectHistoryTracker: tracker)
         
         let directory = NSTemporaryDirectory()
         let subpath = UUID().uuidString
@@ -35,9 +32,12 @@ class Document: NSDocument {
         let storedState = JournalManagerStoredState(localIdentifier: localIdentifier, journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
 
-        session = Session(database: database, journalManager: journalManager)
+        session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
 
         super.init()
+
+        session.delegate = self
+        session.dataSource = self
     }
 
     override class var autosavesInPlace: Bool {
@@ -53,30 +53,13 @@ class Document: NSDocument {
     
     override func write(to url: URL, ofType typeName: String, for saveOperation: NSDocument.SaveOperationType, originalContentsURL absoluteOriginalContentsURL: URL?) throws {
         
-        
-        let allowSave: Bool = true
-//        switch saveOperation {
-//        case .saveAsOperation, .saveOperation, .saveToOperation:
-//            allowSave = true
-//
-//        case .autosaveAsOperation, .autosaveElsewhereOperation, .autosaveInPlaceOperation:
-//            allowSave = false
-//        @unknown default:
-//            allowSave = false
-//        }
-        
-        if allowSave {
-            Swift.print("allenu - writing to URL \(url)")
-
-            // Create folder if not exists
-            if !FileManager.default.fileExists(atPath: url.path) {
-                try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
-            }
-            
-            session.save(to: url)
-        } else {
-            throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
+        // Create folder if not exists
+        if !FileManager.default.fileExists(atPath: url.path) {
+            try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         }
+        
+        session.save(to: url)
+        objectStore.save(to: url)
     }
     
     override func read(from url: URL, ofType typeName: String) throws {
@@ -84,6 +67,12 @@ class Document: NSDocument {
         let remoteFileStore = fileSystemRemoteFileStore
         if let session = Session.create(from: url, with: remoteFileStore) {
             self.session = session
+            self.session.delegate = self
+            self.session.dataSource = self
+            
+            if let objectStore = InMemObjectStore.create(from: url) {
+                self.objectStore = objectStore
+            }
         } else {
             throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
         }
@@ -105,7 +94,7 @@ class Document: NSDocument {
     }
    
     var people: [Person] {
-        let fetchResults = session.fetch(of: "person")
+        let fetchResults = objectStore.fetch(of: "person")
         let objectStates = fetchResults.results
 
         return objectStates.map { Person.create(from: $0.identifier, databaseObject: $0.object) }
@@ -117,6 +106,10 @@ class Document: NSDocument {
         self.updateChangeCount(.changeDone)
     }
    
+    func fetch(of type: String?, limitCount: Int, predicate: ((FetchedDatabaseObject) -> Bool)?) -> FetchResult {
+        return objectStore.fetch(of: type, limitCount: limitCount, predicate: predicate)
+    }
+    
     func syncNew(remoteFolderUrl: URL,
                  completion: @escaping (SessionSyncResponse) -> Void,
                  partialResults: @escaping (Double) -> Void) {
@@ -133,4 +126,16 @@ class Document: NSDocument {
             completion(response)
         }, partialResults: partialResults)
    }
+}
+
+extension Document: SessionDelegate {
+    func session(_ session: Session, didRequestMerge mergeResult: MergeResult) {
+        objectStore.apply(mergeResult: mergeResult)
+    }
+}
+
+extension Document: SessionDataSource {
+    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject? {
+        return objectStore.fetch(identifier: identifier)
+    }
 }

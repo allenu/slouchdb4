@@ -11,8 +11,10 @@ target 'SlouchDB4_Example' do
 end
 target 'PeopleApp' do
     pod 'SlouchDB4', :path => '../'
+  pod 'BTree'
 end
 
 target 'DatabaseViewer' do
   pod 'SlouchDB4', :path => '../'
+  pod 'BTree'
 end
