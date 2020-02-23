@@ -44,7 +44,7 @@
     - [x] FetchCursor should include type
     - [x] type should be optional (if not included, just fetch all types)
 
-- [ ] MAJOR design bug:
+- [-] MAJOR design bug:
     - [-] It's possible that if we process one journal at a time *fully* that we will hit an "update" command in one journal
           before we actually encounter the *insert* command in another one. In such a scenario, we will not store the update
           because the object doesn't exist yet...
@@ -64,12 +64,11 @@
 
         => Turns out I do handle this properly. I just have bad journals that end up removing the same item multiple
             times.
-            - [ ] Figure out how I should handle these ...
+            - [-] Figure out how I should handle these ...
                 - One option is to just keep the journal around and have a field that says it's "deleted".
                   However, this makes fetching slightly more complicated since I have to filter out those deleted entries.
                 - Another option is to store the identifiers of all those items already deleted, so then we can still assert
                   if we try to delete an item that doesn't exist and we legitimately have not yet encountered it :shrug:
-
 
 - [ ] Update PeopleApp to handle pagination
     - [x] Assume N entries can appear on screen at a time and fetch 2N entries
@@ -100,17 +99,17 @@
         - [ ] add wrapper to remove an existing object
 
 
-- [ ] FIgure out how to solve these hard questions
-    - [ ] If you have a large database and want to do a sort on a non-indexed property, how do you do it??
+- [-] Figure out how to solve these hard questions
+    - [-] If you have a large database and want to do a sort on a non-indexed property, how do you do it??
         - very slow, but low footprint: find N lowest items, then return; then find next N items (making sure
           to only search items greater than the last item in the first query), continue on until you've
           exhausted the list
 
-- [ ] See if we can index off a given property instead of just by identifier -- how would it work?
+- [-] See if we can index off a given property instead of just by identifier -- how would it work?
 
-- [ ] Try loading the SlouchDB2 journal files
-    - [ ] Write some Swift code that loads a v2 journal file into mem and writes it out as v4
-    - [ ] Write an app that searches a directory for .journal files and outputs .journal-v4 files
+- [x] Try loading the SlouchDB2 journal files
+    - [x] Write some Swift code that loads a v2 journal file into mem and writes it out as v4
+    - [x] Write an app that searches a directory for .journal files and outputs .journal-v4 files
 
 - [ ] BUG: if you type 'alice' in the people app and then add random entries, eventually one
       will be "Alice" but it won't show up in the search results
@@ -207,8 +206,8 @@
              results anyway.
 
 - [ ] Smarter tableView loading
-    - [ ] Only fetch max number of entries that are visible at a time
-    - [ ] As user scrolls down, fetch more entries if needed
+    - [x] Only fetch max number of entries that are visible at a time
+    - [x] As user scrolls down, fetch more entries if needed
     - [ ] Allow fetch results to complete asynchronously
         - i.e. show a "loading..." cell if needed
 
