@@ -31,6 +31,8 @@
 		B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
 		B76BA9AD240246B200BB3B87 /* InMemObjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */; };
 		B76BA9AE240248BA00BB3B87 /* InMemObjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */; };
+		B76BA9B024024B7400BB3B87 /* InMemObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */; };
+		B76BA9B124024B7900BB3B87 /* InMemObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -84,6 +86,7 @@
 		B76BA99B23F877CF00BB3B87 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		B76BA99C23F877CF00BB3B87 /* DatabaseViewer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = DatabaseViewer.entitlements; sourceTree = "<group>"; };
 		B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InMemObjectStore.swift; sourceTree = "<group>"; };
+		B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InMemObjectHistoryStore.swift; sourceTree = "<group>"; };
 		C6A24016A8CA84D3258A4D71 /* Pods-DatabaseViewer.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-DatabaseViewer.release.xcconfig"; path = "Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer.release.xcconfig"; sourceTree = "<group>"; };
 		CB798225DE886D3EAE22FA89 /* Pods-SlouchDB4_Example.release.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4_Example.release.xcconfig"; path = "Target Support Files/Pods-SlouchDB4_Example/Pods-SlouchDB4_Example.release.xcconfig"; sourceTree = "<group>"; };
 		E34545CB02C50D7FCF9233DA /* Pods-SlouchDB4_Tests.debug.xcconfig */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.xcconfig; name = "Pods-SlouchDB4_Tests.debug.xcconfig"; path = "Target Support Files/Pods-SlouchDB4_Tests/Pods-SlouchDB4_Tests.debug.xcconfig"; sourceTree = "<group>"; };
@@ -233,6 +236,7 @@
 				B71189A923E5FFC700D29302 /* ViewController.swift */,
 				B71189AB23E5FFC700D29302 /* Document.swift */,
 				B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */,
+				B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */,
 				B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */,
 				B71189AD23E5FFCA00D29302 /* Assets.xcassets */,
 				B71189AF23E5FFCA00D29302 /* Main.storyboard */,
@@ -598,6 +602,7 @@
 			files = (
 				B71189AA23E5FFC700D29302 /* ViewController.swift in Sources */,
 				B71189A823E5FFC700D29302 /* AppDelegate.swift in Sources */,
+				B76BA9B024024B7400BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
 				B71189B823E6004500D29302 /* Person.swift in Sources */,
 				B76BA9AD240246B200BB3B87 /* InMemObjectStore.swift in Sources */,
 				B71189AC23E5FFC700D29302 /* Document.swift in Sources */,
@@ -609,6 +614,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B76BA9B124024B7900BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
 				B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */,
 				B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */,
 				B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */,

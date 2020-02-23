@@ -8,7 +8,7 @@
 
 import Foundation
 
-enum ObjectHistoryProcessingState {
+public enum ObjectHistoryProcessingState {
     case fastForward(nextDiffIndex: Int)
     case replay
 }
@@ -20,10 +20,10 @@ public protocol ObjectProvider: class {
 typealias ObjectHistory =  [ObjectDiff]
 
 public class ObjectHistoryState {
-    var processingState: ObjectHistoryProcessingState
-    var diffs: [ObjectDiff]
+    public var processingState: ObjectHistoryProcessingState
+    public var diffs: [ObjectDiff]
     
-    init(processingState: ObjectHistoryProcessingState,
+    public init(processingState: ObjectHistoryProcessingState,
          diffs: [ObjectDiff] = []) {
         self.processingState = processingState
         self.diffs = diffs
@@ -38,23 +38,6 @@ public struct MergeResult {
     public var totalChanges: Int {
         return insertedObjects.count + removedObjects.count + updatedObjects.count
     }
-}
-
-enum ObjectHistoryProcessingStateFileRepresentation: String, Codable {
-    case fastForward
-    case replay
-}
-
-struct ObjectHistoryStateFileRepresentation: Codable {
-    let processingState: ObjectHistoryProcessingStateFileRepresentation
-    let fastForwardNextDiffIndex: Int // only used if fastForward
-    
-    let diffs: [ObjectDiffJsonRepresentation]
-}
-
-struct ObjectHistoryFileRepresentation: Codable {
-    let histories: [String : ObjectHistoryStateFileRepresentation]
-    let pendingUpdates: [String]
 }
 
 public class ObjectHistoryTracker {

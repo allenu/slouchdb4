@@ -58,7 +58,7 @@ public enum ObjectDiff {
         }
     }
     
-    var jsonRepresentation: ObjectDiffJsonRepresentation {
+    public var jsonRepresentation: ObjectDiffJsonRepresentation {
         let jsonRepresentation: ObjectDiffJsonRepresentation
         switch self {
         case .insert(let identifier, let timestamp, let object):

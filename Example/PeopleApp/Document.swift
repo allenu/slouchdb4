@@ -65,7 +65,11 @@ class Document: NSDocument {
     override func read(from url: URL, ofType typeName: String) throws {
         fileSystemRemoteFileStore = FileSystemRemoteFileStore()
         let remoteFileStore = fileSystemRemoteFileStore
-        if let session = Session.create(from: url, with: remoteFileStore) {
+        
+        if let objectHistoryStore = InMemObjectHistoryStore.create(from: url),
+            let journalManager = JournalManager.create(from: url, with: remoteFileStore) {
+            let session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+
             self.session = session
             self.session.delegate = self
             self.session.dataSource = self

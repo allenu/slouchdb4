@@ -78,15 +78,6 @@ public class Session {
         self.objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
     }
     
-    public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> Session? {
-        if let objectHistoryStore = InMemObjectHistoryStore.create(from: folderUrl),
-            let journalManager = JournalManager.create(from: folderUrl, with: remoteFileStore) {
-            return Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
-        }
-        
-        return nil
-    }
-    
     public func save(to folderUrl: URL) {
         objectHistoryTracker.save(to: folderUrl)
         journalManager.save(to: folderUrl)

@@ -6,6 +6,26 @@
 //
 
 import Foundation
+import SlouchDB4
+
+
+enum ObjectHistoryProcessingStateFileRepresentation: String, Codable {
+    case fastForward
+    case replay
+}
+
+struct ObjectHistoryStateFileRepresentation: Codable {
+    let processingState: ObjectHistoryProcessingStateFileRepresentation
+    let fastForwardNextDiffIndex: Int // only used if fastForward
+    
+    let diffs: [ObjectDiffJsonRepresentation]
+}
+
+struct ObjectHistoryFileRepresentation: Codable {
+    let histories: [String : ObjectHistoryStateFileRepresentation]
+    let pendingUpdates: [String]
+}
+
 
 public class InMemObjectHistoryStore: ObjectHistoryStoring {
     // init with data here
