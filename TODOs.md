@@ -6,6 +6,9 @@
         - [x] Get rid of ObjectStore from Database/Session
 
 - [ ] Support SQLite ObjectStore
+    - [ ] Clean up naming of "object-history.sqlite3"
+        - Move cration of path to one location (caller of SqliteObjectHistoryStore)
+
     - [ ] Remove insert() and just use replace() ?
 
     - [ ] Figure out how to use Sqlite for ObjectHistoryStore

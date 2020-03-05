@@ -106,6 +106,9 @@ public class ObjectHistoryTracker {
                     } else {
                         // First diff is not an insert, so do not consider as pending update until then.
                     }
+                    
+                    // Update it in the datastore
+                    objectHistoryStore.update(objectHistoryState: objectHistoryState, for: diff.identifier)
                 }
             } else {
                 // Doesn't exist yet, so create it

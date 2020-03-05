@@ -1,20 +1,21 @@
 use_frameworks!
 
 target 'SlouchDB4_Example' do
-  pod 'SlouchDB4', :path => '../', :testspecs => ['Tests']
+    pod 'SlouchDB4', :path => '../', :testspecs => ['Tests']
 
-  target 'SlouchDB4_Tests' do
-    inherit! :search_paths
-
-    
-  end
+    target 'SlouchDB4_Tests' do
+        inherit! :search_paths
+    end
 end
+
 target 'PeopleApp' do
     pod 'SlouchDB4', :path => '../'
-  pod 'BTree'
+    pod 'SQLite.swift', '~> 0.12.0'
+    pod 'BTree'
 end
 
 target 'DatabaseViewer' do
-  pod 'SlouchDB4', :path => '../'
-  pod 'BTree'
+    pod 'SlouchDB4', :path => '../'
+    pod 'SQLite.swift', '~> 0.12.0'
+    pod 'BTree'
 end

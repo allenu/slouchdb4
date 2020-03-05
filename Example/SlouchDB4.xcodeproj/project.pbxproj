@@ -24,6 +24,9 @@
 		B71189B123E5FFCA00D29302 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B71189AF23E5FFCA00D29302 /* Main.storyboard */; };
 		B71189B823E6004500D29302 /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189B723E6004500D29302 /* Person.swift */; };
 		B71189C123E749B200D29302 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
+		B75F21F12410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
+		B75F21F22410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
+		B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
 		B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA99223F877CD00BB3B87 /* AppDelegate.swift */; };
 		B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA99423F877CD00BB3B87 /* ViewController.swift */; };
 		B76BA99723F877CF00BB3B87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B76BA99623F877CF00BB3B87 /* Assets.xcassets */; };
@@ -78,6 +81,7 @@
 		B71189B323E5FFCA00D29302 /* PeopleApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PeopleApp.entitlements; sourceTree = "<group>"; };
 		B71189B723E6004500D29302 /* Person.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Person.swift; sourceTree = "<group>"; };
 		B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemRemoteFileStore.swift; sourceTree = "<group>"; };
+		B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SqliteObjectHistoryStore.swift; sourceTree = "<group>"; };
 		B76BA99023F877CD00BB3B87 /* DatabaseViewer.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DatabaseViewer.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		B76BA99223F877CD00BB3B87 /* AppDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		B76BA99423F877CD00BB3B87 /* ViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewController.swift; sourceTree = "<group>"; };
@@ -250,6 +254,7 @@
 		B75F21EF2410C56A00AD7C68 /* SqliteStores */ = {
 			isa = PBXGroup;
 			children = (
+				B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */,
 			);
 			path = SqliteStores;
 			sourceTree = "<group>";
@@ -469,11 +474,13 @@
 				"${PODS_ROOT}/Target Support Files/Pods-DatabaseViewer/Pods-DatabaseViewer-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/SlouchDB4-macOS/SlouchDB4.framework",
 				"${BUILT_PRODUCTS_DIR}/BTree/BTree.framework",
+				"${BUILT_PRODUCTS_DIR}/SQLite.swift/SQLite.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SlouchDB4.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BTree.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SQLite.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -511,11 +518,13 @@
 				"${PODS_ROOT}/Target Support Files/Pods-PeopleApp/Pods-PeopleApp-frameworks.sh",
 				"${BUILT_PRODUCTS_DIR}/SlouchDB4-macOS/SlouchDB4.framework",
 				"${BUILT_PRODUCTS_DIR}/BTree/BTree.framework",
+				"${BUILT_PRODUCTS_DIR}/SQLite.swift/SQLite.framework",
 			);
 			name = "[CP] Embed Pods Frameworks";
 			outputPaths = (
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SlouchDB4.framework",
 				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/BTree.framework",
+				"${TARGET_BUILD_DIR}/${FRAMEWORKS_FOLDER_PATH}/SQLite.framework",
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
@@ -591,6 +600,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				B75F21F12410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */,
 				607FACD81AFB9204008FA782 /* ViewController.swift in Sources */,
 				607FACD61AFB9204008FA782 /* AppDelegate.swift in Sources */,
 			);
@@ -609,6 +619,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				B71189AA23E5FFC700D29302 /* ViewController.swift in Sources */,
+				B75F21F22410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */,
 				B71189A823E5FFC700D29302 /* AppDelegate.swift in Sources */,
 				B76BA9B024024B7400BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
 				B71189B823E6004500D29302 /* Person.swift in Sources */,
@@ -625,6 +636,7 @@
 				B76BA9B124024B7900BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
 				B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */,
 				B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */,
+				B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */,
 				B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */,
 				B76BA9AE240248BA00BB3B87 /* InMemObjectStore.swift in Sources */,
 			);

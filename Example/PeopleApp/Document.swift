@@ -20,11 +20,14 @@ class Document: NSDocument {
         // Add your subclass-specific initialization here.
         let localIdentifier = UUID().uuidString // TODO: ???
         
-        let objectHistoryStore = InMemObjectHistoryStore()
-        
         let directory = NSTemporaryDirectory()
         let subpath = UUID().uuidString
         let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
+        
+        try! FileManager.default.createDirectory(at: tempUrl, withIntermediateDirectories: true, attributes: nil)
+
+        // let objectHistoryStore = InMemObjectHistoryStore()
+        let objectHistoryStore = SqliteObjectHistoryStore(folderUrl: tempUrl)
 
         journalFileManager = JournalFileManager(workingFolderUrl: tempUrl)
         fileSystemRemoteFileStore = FileSystemRemoteFileStore()
@@ -32,7 +35,7 @@ class Document: NSDocument {
         let storedState = JournalManagerStoredState(localIdentifier: localIdentifier, journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
 
-        changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+        changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore!)
 
         super.init()
 
@@ -66,16 +69,37 @@ class Document: NSDocument {
         fileSystemRemoteFileStore = FileSystemRemoteFileStore()
         let remoteFileStore = fileSystemRemoteFileStore
         
-        if let objectHistoryStore = InMemObjectHistoryStore.create(from: url),
-            let journalManager = JournalManager.create(from: url, with: remoteFileStore) {
-            let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
-
-            self.changeTracker = changeTracker
-            self.changeTracker.delegate = self
-            self.changeTracker.dataSource = self
+        let objectHistorySqliteUrl = url.appendingPathComponent("object-history.sqlite3")
+        if FileManager.default.fileExists(atPath: objectHistorySqliteUrl.path) {
             
-            if let objectStore = InMemObjectStore.create(from: url) {
-                self.objectStore = objectStore
+            let directory = NSTemporaryDirectory()
+            let tempUrl = NSURL.fileURL(withPath: directory)
+            let destinationFileUrl = tempUrl.appendingPathComponent("object-history.sqlite3")
+
+            // TODO: Check if object-history.sqlite3 file exists at url. If so, copy to temporary folder
+            // (working folder) and open it from there...
+
+            // Remove file at destination if it's already there
+            if FileManager.default.fileExists(atPath: destinationFileUrl.path) {
+                try! FileManager.default.removeItem(at: destinationFileUrl)
+            }
+            
+            try! FileManager.default.copyItem(at: objectHistorySqliteUrl, to: destinationFileUrl)
+
+            //if let objectHistoryStore = InMemObjectHistoryStore.create(from: url),
+            if let objectHistoryStore = SqliteObjectHistoryStore(folderUrl: tempUrl),
+                let journalManager = JournalManager.create(from: url, with: remoteFileStore) {
+                let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+
+                self.changeTracker = changeTracker
+                self.changeTracker.delegate = self
+                self.changeTracker.dataSource = self
+                
+                if let objectStore = InMemObjectStore.create(from: url) {
+                    self.objectStore = objectStore
+                }
+            } else {
+                throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
             }
         } else {
             throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
