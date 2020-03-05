@@ -47,7 +47,7 @@ class ViewController: NSViewController {
     override func viewDidAppear() {
         super.viewDidAppear()
         
-        identifierLabel.stringValue = document?.session.localIdentifier ?? "unknown"
+        identifierLabel.stringValue = document?.changeTracker.localIdentifier ?? "unknown"
         tableView.reloadData()
     }
     

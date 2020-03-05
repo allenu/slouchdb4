@@ -1,5 +1,5 @@
 //
-//  Session.swift
+//  ChangeTracker.swift
 //  SlouchDB4
 //
 //  Created by Allen Ussher on 1/24/20.
@@ -44,30 +44,30 @@ public protocol JournalManaging {
     func save(to folderUrl: URL)
 }
 
-public enum SessionSyncResponse {
-    case success
-    case failure
+public protocol ChangeTrackerDelegate: class {
+    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult)
 }
 
-public protocol SessionDelegate: class {
-    func session(_ session: Session, didRequestMerge mergeResult: MergeResult)
+public protocol ChangeTrackerDataSource: class {
+    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject?
 }
 
-public protocol SessionDataSource: class {
-    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject?
-}
-
-// Session does the following:
+// ChangeTracker does the following:
 // - stores diffs on local Insert, Update, Delete requests into local journal
 // - coordinates "merging" remote changes into local object history
 // -
 //
-public class Session {
+public class ChangeTracker {
+    public enum SyncResponse {
+        case success
+        case failure
+    }
+    
     let journalManager: JournalManaging
     let objectHistoryTracker: ObjectHistoryTracker
     
-    public weak var delegate: SessionDelegate?
-    public weak var dataSource: SessionDataSource?
+    public weak var delegate: ChangeTrackerDelegate?
+    public weak var dataSource: ChangeTrackerDataSource?
 
     public var localIdentifier: String {
         return journalManager.localIdentifier
@@ -89,7 +89,7 @@ public class Session {
     
     func mergeEnqueued() {
         let mergeResult = objectHistoryTracker.process(objectProvider: self)
-        delegate?.session(self, didRequestMerge: mergeResult)
+        delegate?.changeTracker(self, didRequestMerge: mergeResult)
     }
     
     // Local database changes
@@ -117,7 +117,7 @@ public class Session {
         mergeEnqueued()
     }
     
-    public func sync(completion: @escaping (SessionSyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
+    public func sync(completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
         journalManager.fetchLatestDiffs(completion: { [weak self] response, callbackWhenDiffsMerged in
             guard let strongSelf = self else { return }
             
@@ -139,7 +139,7 @@ public class Session {
                         strongSelf.mergeEnqueued()
                         callbackWhenDiffsMerged?(true)
 
-                        // Tell client of Session that we have partial results ready.
+                        // Tell client of ChangeTracker that we have partial results ready.
                         partialResults(percent)
 
                         // Still have more results, so run sync() again
@@ -166,8 +166,8 @@ public class Session {
     }
 }
 
-extension Session: ObjectProvider {
+extension ChangeTracker: ObjectProvider {
     public func object(for identifier: String) -> DatabaseObject? {
-        return dataSource?.session(self, objectFor: identifier)
+        return dataSource?.changeTracker(self, objectFor: identifier)
     }
 }

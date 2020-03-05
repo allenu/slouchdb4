@@ -10,7 +10,7 @@ import Cocoa
 import SlouchDB4
 
 class Document: NSDocument {
-    var session: Session
+    var changeTracker: ChangeTracker
     
     var fileSystemRemoteFileStore: FileSystemRemoteFileStore
     let journalFileManager: JournalFileManager
@@ -32,12 +32,12 @@ class Document: NSDocument {
         let storedState = JournalManagerStoredState(localIdentifier: localIdentifier, journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
 
-        session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+        changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
 
         super.init()
 
-        session.delegate = self
-        session.dataSource = self
+        changeTracker.delegate = self
+        changeTracker.dataSource = self
     }
 
     override class var autosavesInPlace: Bool {
@@ -58,7 +58,7 @@ class Document: NSDocument {
             try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         }
         
-        session.save(to: url)
+        changeTracker.save(to: url)
         objectStore.save(to: url)
     }
     
@@ -68,11 +68,11 @@ class Document: NSDocument {
         
         if let objectHistoryStore = InMemObjectHistoryStore.create(from: url),
             let journalManager = JournalManager.create(from: url, with: remoteFileStore) {
-            let session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+            let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
 
-            self.session = session
-            self.session.delegate = self
-            self.session.dataSource = self
+            self.changeTracker = changeTracker
+            self.changeTracker.delegate = self
+            self.changeTracker.dataSource = self
             
             if let objectStore = InMemObjectStore.create(from: url) {
                 self.objectStore = objectStore
@@ -89,12 +89,12 @@ class Document: NSDocument {
             Person.agePropertyKey : .int(person.age),
             Person.weightPropertyKey : .int(person.weight)
         ]
-        session.insert(identifier: UUID().uuidString, object: DatabaseObject(type: "person", properties: properties))
+        changeTracker.insert(identifier: UUID().uuidString, object: DatabaseObject(type: "person", properties: properties))
         self.updateChangeCount(.changeDone)
     }
    
     func remove(person: Person) {
-       session.remove(identifier: person.identifier)
+       changeTracker.remove(identifier: person.identifier)
     }
    
     var people: [Person] {
@@ -105,7 +105,7 @@ class Document: NSDocument {
     }
 
     func modifyPerson(identifier: String, properties: [String : JSONValue]) {
-        session.update(identifier: identifier, updatedProperties: properties)
+        changeTracker.update(identifier: identifier, updatedProperties: properties)
        
         self.updateChangeCount(.changeDone)
     }
@@ -115,11 +115,11 @@ class Document: NSDocument {
     }
     
     func syncNew(remoteFolderUrl: URL,
-                 completion: @escaping (SessionSyncResponse) -> Void,
+                 completion: @escaping (ChangeTracker.SyncResponse) -> Void,
                  partialResults: @escaping (Double) -> Void) {
         fileSystemRemoteFileStore.remoteFolderUrl = remoteFolderUrl
         
-        session.sync(completion: { response in
+        changeTracker.sync(completion: { response in
             switch response {
             case .success:
                 self.updateChangeCount(.changeDone)
@@ -132,14 +132,14 @@ class Document: NSDocument {
    }
 }
 
-extension Document: SessionDelegate {
-    func session(_ session: Session, didRequestMerge mergeResult: MergeResult) {
+extension Document: ChangeTrackerDelegate {
+    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult) {
         objectStore.apply(mergeResult: mergeResult)
     }
 }
 
-extension Document: SessionDataSource {
-    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject? {
+extension Document: ChangeTrackerDataSource {
+    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject? {
         return objectStore.fetch(identifier: identifier)
     }
 }

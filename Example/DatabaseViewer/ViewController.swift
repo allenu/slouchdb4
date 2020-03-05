@@ -10,7 +10,7 @@ import Cocoa
 import SlouchDB4
 
 class ViewController: NSViewController {
-    var session: Session?
+    var changeTracker: ChangeTracker?
     var remoteFolder: URL?
     let itemsPerPage: Int = 10
     
@@ -42,19 +42,19 @@ class ViewController: NSViewController {
         let storedState = JournalManagerStoredState(localIdentifier: "local-unused", journalByteOffsets: [:], remoteFileVersion: [:], lastLocalVersionPushed: "none")
         let journalManager = JournalManager(journalFileManager: journalFileManager, remoteFileStore: remoteFileStore, storedState: storedState)
         
-        let session = Session(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
-        session.delegate = self
-        session.dataSource = self
+        let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
+        changeTracker.delegate = self
+        changeTracker.dataSource = self
         
         // Sync it ...
-        session.sync(completion: { response in
+        changeTracker.sync(completion: { response in
             switch response {
             case .failure:
                 print("Couldn't load that URL")
                 
             case .success:
                 DispatchQueue.main.async {
-                    self.session = session
+                    self.changeTracker = changeTracker
                     self.numberOfItems = 0
                     self.fetchedObjects = []
                     self.fetchCursor = nil
@@ -110,7 +110,7 @@ class ViewController: NSViewController {
         let lastVisibleRow = visibleRows.location + visibleRows.length
         print("lastVisibleRow is \(lastVisibleRow)")
         
-        guard let session = session else { return }
+        guard let changeTracker = changeTracker else { return }
         
         // Assume we have to add one (hack)
         let row = index + 1
@@ -188,7 +188,7 @@ extension ViewController: NSTableViewDataSource {
     }
     
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
-        guard let session = session else { return nil }
+        guard let changeTracker = changeTracker else { return nil }
         guard row < self.fetchedObjects.count else {
             return nil
         }
@@ -209,14 +209,14 @@ extension ViewController: NSTableViewDataSource {
     }
 }
 
-extension ViewController: SessionDelegate {
-    func session(_ session: Session, didRequestMerge mergeResult: MergeResult) {
+extension ViewController: ChangeTrackerDelegate {
+    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult) {
         objectStore.apply(mergeResult: mergeResult)
     }
 }
 
-extension ViewController: SessionDataSource {
-    func session(_ session: Session, objectFor identifier: String) -> DatabaseObject? {
+extension ViewController: ChangeTrackerDataSource {
+    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject? {
         return objectStore.fetch(identifier: identifier)
     }
 }

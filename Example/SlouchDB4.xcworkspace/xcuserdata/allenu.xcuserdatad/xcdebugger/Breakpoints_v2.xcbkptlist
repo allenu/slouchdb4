@@ -224,7 +224,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "137"
             endingLineNumber = "137"
-            landmarkName = "session(_:didRequestMerge:)"
+            landmarkName = "changeTracker(_:didRequestMerge:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -240,23 +240,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "143"
             endingLineNumber = "143"
-            landmarkName = "session(_:objectFor:)"
-            landmarkType = "7">
-         </BreakpointContent>
-      </BreakpointProxy>
-      <BreakpointProxy
-         BreakpointExtensionID = "Xcode.Breakpoint.FileBreakpoint">
-         <BreakpointContent
-            uuid = "1F320EC0-A4B4-45D4-B655-BE7E1598FC42"
-            shouldBeEnabled = "Yes"
-            ignoreCount = "0"
-            continueAfterRunningActions = "No"
-            filePath = "../SlouchDB4/Classes/Core/Session.swift"
-            startingColumnNumber = "9223372036854775807"
-            endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "174"
-            endingLineNumber = "174"
-            landmarkName = "object(for:)"
+            landmarkName = "changeTracker(_:objectFor:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -272,7 +256,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "101"
             endingLineNumber = "101"
-            landmarkName = "mergeEnqueued()"
+            landmarkName = "insert(identifier:object:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>

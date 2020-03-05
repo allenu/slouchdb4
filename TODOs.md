@@ -8,6 +8,8 @@
 - [ ] Support SQLite ObjectStore
     - [ ] Remove insert() and just use replace() ?
 
+    - [ ] Figure out how to use Sqlite for ObjectHistoryStore
+
 - [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
     - Is it b/c pending updates aren't saved? And when you quit and then later re-load, it's not seen as a pending
       update?

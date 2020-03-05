@@ -157,6 +157,7 @@
 		607FACC71AFB9204008FA782 = {
 			isa = PBXGroup;
 			children = (
+				B75F21EF2410C56A00AD7C68 /* SqliteStores */,
 				607FACF51AFB993E008FA782 /* Podspec Metadata */,
 				607FACD21AFB9204008FA782 /* Example for SlouchDB4 */,
 				607FACE81AFB9204008FA782 /* Tests */,
@@ -244,6 +245,13 @@
 				B71189B323E5FFCA00D29302 /* PeopleApp.entitlements */,
 			);
 			path = PeopleApp;
+			sourceTree = "<group>";
+		};
+		B75F21EF2410C56A00AD7C68 /* SqliteStores */ = {
+			isa = PBXGroup;
+			children = (
+			);
+			path = SqliteStores;
 			sourceTree = "<group>";
 		};
 		B76BA99123F877CD00BB3B87 /* DatabaseViewer */ = {
