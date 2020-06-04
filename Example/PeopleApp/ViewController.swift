@@ -27,33 +27,133 @@ class ViewController: NSViewController {
         get {
             if _document == nil {
                 _document = self.view.window?.windowController?.document as? Document
+                cacheWindow = CacheWindow(provider: _document!.personProvider)
+                
+                NotificationCenter.default.addObserver(self, selector: #selector(dataDidChange(notification:)), name: PersonProvider.dataDidChangeNotification, object: _document?.personProvider)
+
+                NotificationCenter.default.addObserver(self, selector: #selector(dataDidReload(notification:)), name: PersonProvider.dataDidReloadNotification, object: _document?.personProvider)
+                
+                // Prefill cache
+                _ = cacheWindow?.setCacheWindow(newOffset: 0, newSize: 20)
+                tableView.reloadData()
             }
             return _document
         }
     }
     var remoteFolder: URL?
     var searchContextId: Int = 0
+    var cacheWindow: CacheWindow<PersonProvider>?
 
     override func viewDidLoad() {
         super.viewDidLoad()
-
+        
         // Do any additional setup after loading the view.
         tableView.dataSource = self
         tableView.delegate = self
         
         searchField.delegate = self
+        
+        // Need to listen to when user scrolls too far
+        self.tableView.enclosingScrollView?.postsBoundsChangedNotifications = true
+        NotificationCenter.default.addObserver(self, selector: #selector(didObserveScroll(notification:)), name: NSView.boundsDidChangeNotification, object: self.tableView.enclosingScrollView?.contentView)
+
+
+
+    }
+    
+    func updateCacheWindow() {
+        guard let cacheWindow = cacheWindow else { return }
+        
+        let visibleRows = tableView.rows(in: tableView.visibleRect)
+        let tableOperations = cacheWindow.setCacheWindow(newOffset: visibleRows.location - 5, newSize: visibleRows.length + 10)
+        process(tableOperations: tableOperations)
     }
 
     override func viewDidAppear() {
         super.viewDidAppear()
-        
+
         identifierLabel.stringValue = document?.changeTracker.localIdentifier ?? "unknown"
         tableView.reloadData()
     }
     
+    
     override var representedObject: Any? {
         didSet {
         // Update the view, if already loaded.
+        }
+    }
+    
+    @objc func didObserveScroll(notification: NSNotification) {
+        updateCacheWindow()
+    }
+    
+    @objc func dataDidReload(notification: NSNotification) {
+        cacheWindow?.clear()
+        tableView.reloadData()
+    }
+
+    @objc func dataDidChange(notification: NSNotification) {
+        guard let cacheWindow = cacheWindow else { return }
+
+        let updatedIdentifiers: [String] = (notification.userInfo?["updatedIdentifiers"] as? [String]) ?? []
+        let removedIdentifiers: [String] = (notification.userInfo?["removedIdentifiers"] as? [String]) ?? []
+        let insertedIdentifiers: [String] = (notification.userInfo?["insertedIdentifiers"] as? [String]) ?? []
+        
+        let tableOperations = cacheWindow.updateIfNeeded(updatedIdentifiers: updatedIdentifiers,
+                                                         insertedIdentifiers: insertedIdentifiers,
+                                                         removedIdentifiers: removedIdentifiers)
+        
+        process(tableOperations: tableOperations)
+    }
+
+    func process(tableOperations: [TableOperation]) {
+        guard let cacheWindow = cacheWindow else { return }
+        
+        if tableOperations.count > 0 {
+            var shouldScrollToEnd = false
+            self.tableView.beginUpdates()
+            tableOperations.forEach { operation in
+                switch operation {
+                case .none:
+                    break
+                    
+                case .update(let position, let size):
+                    var indexSet = IndexSet()
+                    Array(position..<(position+size)).forEach { index in
+                        indexSet.insert(index)
+                    }
+                    self.tableView.reloadData(forRowIndexes: indexSet, columnIndexes: IndexSet(arrayLiteral: 0))
+
+                case .insert(let position, let size):
+                    var indexSet = IndexSet()
+                    Array(position..<(position+size)).forEach { index in
+                        indexSet.insert(index)
+                    }
+                    self.tableView.insertRows(at: indexSet, withAnimation: .slideDown)
+                    // Also scroll to end if needed
+                    if cacheWindow.isViewingEnd {
+                        shouldScrollToEnd = true
+                    } else {
+                        self.tableView.enclosingScrollView?.flashScrollers()
+                    }
+                    
+                case .remove(let position, let size):
+                    var indexSet = IndexSet()
+                    Array(position..<(position+size)).forEach { index in
+                        indexSet.insert(index)
+                    }
+                    self.tableView.removeRows(at: indexSet, withAnimation: .slideUp)
+                    
+                case .reload:
+                    self.tableView.reloadData()
+                }
+            }
+            self.tableView.endUpdates()
+            if shouldScrollToEnd {
+                self.tableView.scrollRowToVisible(cacheWindow.numItems - 1)
+            }
+        } else {
+//            print("no changes to process")
         }
     }
 
@@ -119,29 +219,15 @@ class ViewController: NSViewController {
     }
     
     @IBAction func didTapDelete(sender: Any) {
-        guard let document = document else { return }
+        guard let cacheWindow = cacheWindow else { return }
         
-        let people: [Person]
-        switch sourceDataType {
-        case .all:
-            people = document.people
-            
-        case .filteredResults(_, let filteredResults):
-            people = filteredResults
-        }
-
         let selectedRow = tableView.selectedRow
-        if selectedRow >= 0 && selectedRow < people.count {
-
-            // Update the UI first
-            tableView.beginUpdates()
-            let rows = IndexSet(integer: selectedRow)
-            tableView.removeRows(at: rows, withAnimation: .slideUp)
-            tableView.endUpdates()
-
-            // Then the data
-            let person = people[selectedRow]
-            document.remove(person: person)
+        if selectedRow >= 0 {
+            
+            if let person = cacheWindow.item(at: selectedRow) {
+                // NOTE: We must go through the change tracker to make the edit!
+                document?.changeTracker.remove(identifier: person.identifier)
+            }
         }
     }
     
@@ -163,6 +249,7 @@ class ViewController: NSViewController {
             searchContextId = searchContextId + 1
             let thisSearchContextId = searchContextId
             
+            /*
             DispatchQueue.main.asyncAfter(deadline: .now() + searchStartDelta, execute: {
                 guard let nextSearchTime = self.nextSearchTime else { return }
                 
@@ -195,6 +282,7 @@ class ViewController: NSViewController {
                     }
                 }
             })
+ */
         }
     }
 
@@ -202,6 +290,7 @@ class ViewController: NSViewController {
 
 extension ViewController: NSTableViewDataSource {
     public func numberOfRows(in tableView: NSTableView) -> Int {
+        /*
         guard let document = document else { return 0 }
         let people: [Person]
         switch sourceDataType {
@@ -213,8 +302,11 @@ extension ViewController: NSTableViewDataSource {
         }
 
         return people.count
+ */
+        return cacheWindow?.numItems ?? 0
     }
     
+    /*
     func tableView(_ tableView: NSTableView, objectValueFor tableColumn: NSTableColumn?, row: Int) -> Any? {
         guard let document = document else { return nil }
         
@@ -270,9 +362,24 @@ extension ViewController: NSTableViewDataSource {
             }
         }
     }
+ */
+    
 }
 
 extension ViewController: NSTableViewDelegate {
+    func tableView(_ tableView: NSTableView, viewFor tableColumn: NSTableColumn?, row: Int) -> NSView? {
+        
+        let aView = tableView.makeView(withIdentifier: NSUserInterfaceItemIdentifier(rawValue: "MyCellView"), owner: nil) as! NSTableCellView
+        
+        if let person = cacheWindow?.item(at: row) {
+            aView.textField?.stringValue = "\(person.identifier) - \(person.name)"
+        } else {
+            aView.textField?.stringValue = "loading..."
+        }
+        
+        return aView
+    }
+
 }
 
 extension ViewController: NSTextFieldDelegate {

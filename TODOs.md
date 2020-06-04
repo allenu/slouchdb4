@@ -1,21 +1,73 @@
 
+- [ ] Get it ready for production
+
+- [x] Add change notifications to PersonProvider to illustrate how to handle inserts, updates, deletions
+    - [-] Add startBulkEdit() and endBulkEdit() to PersonProvider so that it can collect all diffs propagated
+          by ChangeTracker into one, instead of having individual ones sent out.
+
+          => may not be needed since apply(mergeResult:) does the bulk work for us?
+
+    - [x] Deleting and inserting rows doesn't quite work -- new rows just show "loading..."
+
+- [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
+    - Is it b/c pending updates aren't saved? And when you quit and then later re-load, it's not seen as a pending
+      update?
+
+- [ ] BUG: When you sync a whole new document, you often end up with just SOME entries in the updateIfNeeded() call
+
+- [ ] Error-recovery
+    - [ ] BUG: Couldn't parse some of hte journal data. Seems like we were at the wrong offset in the file ?
+        -> Yes, we likely had a bad journal file earlier that was out of date due to a bug. When we replaced
+           it, the byte index was then wrong.
+
+           We should make it so if a journal disappears, we should remove it from our object state history.
+           This way we can easily recover by deleting the journal file.
+
+    - [ ] TEST resiliency of file reader:
+        - if we encounter data before a newline that is just garbage, make sure we skip it and recover enough
+          to read the next proper line of data
+
+- [ ] Add support for rotating local identifiers
+    - Requirements:
+        - if local file gets too big, update local identifier
+        - must still be able to push local journals even if they are not the current one
+
+- [ ] Test: RemoteFileStore.fetchFiles() returns an incomplete set of files and versions
+    - Should still work
+    - Files missing are just not updated
+
 - [x] Refactor so that Session doesn't talk to Database at all. Instead it should delegate out
       the database requests to the client, who can then make those requests on its behalf.
     - [x] Get rid of "Database" class
         - [x] Move its business logic up to "Session"
         - [x] Get rid of ObjectStore from Database/Session
 
-- [ ] Support SQLite ObjectStore
-    - [ ] Clean up naming of "object-history.sqlite3"
-        - Move cration of path to one location (caller of SqliteObjectHistoryStore)
+- [-] BUG: People crashes after you save and it says ther were other edits to the file
+    - 1st, What's causing the alert?
 
-    - [ ] Remove insert() and just use replace() ?
+    - 2nd, what is the error?
 
-    - [ ] Figure out how to use Sqlite for ObjectHistoryStore
+Fatal error: 'try!' expression unexpectedly raised an error: disk I/O error (code: 10): file /Users/allenu/Development/mac/SlouchDB4/Example/Pods/SQLite.swift/Sources/SQLite/Core/Statement.swift, line 211
+2020-03-05 23:18:44.647226-0800 PeopleApp[34691:794533] Fatal error: 'try!' expression unexpectedly raised an error: disk I/O error (code: 10): file /Users/allenu/Development/mac/SlouchDB4/Example/Pods/SQLite.swift/Sources/SQLite/Core/Statement.swift, line 211
 
-- [ ] BUG: PeopleApp - if you edit a field and then save, then sync, sometimes it doesn't push up the changes
-    - Is it b/c pending updates aren't saved? And when you quit and then later re-load, it's not seen as a pending
-      update?
+    - 3rd, what is this error?
+
+2020-03-05 23:26:27.474875-0800 PeopleApp[34931:803521] [logging] BUG IN CLIENT OF libsqlite3.dylib: database integrity compromised by API violation: vnode unlinked while in use: /private/var/folders/vl/mmny5d8j27n9yrw5q4q18_tr0000gn/T/com.ussherpress.PeopleApp/TemporaryItems/(A Document Being Saved By PeopleApp 2)/Foo.People/people-app.sqlite3
+    
+    - It's likely because the file we are writing to (.sqlite3) is being moved to the folder above and then later unlinked
+    - [-] What we need to do is *close* the connection to Sqlite before we save, and after saving, re-open it
+
+    - [x] Make sure when we open an existing document that we 
+        - [x] copy the object-history sql db to temp folder
+        - [x] open the object-history *at* that temp folder
+        - [x] copy the object db to temp folder
+        - [x] open the object db *at* that temp folder
+
+- [x] Support SQLite ObjectStore
+    - [x] Clean up naming of "object-history.sqlite3"
+        - Move creation of path to one location (caller of SqliteObjectHistoryStore)
+    - [-] Remove insert() and just use replace() ?
+    - [x] Figure out how to use Sqlite for ObjectHistoryStore
 
 - [x] Major redesign to handle external data storage and caching: Instead of implementing any data storage
       or querying semantics, we should abstract all this to a protocol and make use of existing database
@@ -56,7 +108,7 @@
 
           -- See code in ObjectHistoryTracker.swift:244
 
-          - [ ] Write unit test to prove we handle this appropriately
+          - [-] Write unit test to prove we handle this appropriately
 
           Solution:
           - if encountered an update or remove on an object that is not yet in the cache, create the entry
@@ -75,34 +127,33 @@
                 - Another option is to store the identifiers of all those items already deleted, so then we can still assert
                   if we try to delete an item that doesn't exist and we legitimately have not yet encountered it :shrug:
 
-- [ ] Update PeopleApp to handle pagination
+- [x] Update PeopleApp to handle pagination
     - [x] Assume N entries can appear on screen at a time and fetch 2N entries
     - [x] When we display entry 2N * 0.75, start fetching another N entries
     - [x] have a cached window of some M entries - enough below and above current window
-    - [ ] if we scroll up beyond the current cached entries, do a *reverse* fetch
+    - [x] if we scroll up beyond the current cached entries, do a *reverse* fetch
 
-- [ ] Add "revese" fetch from a given cursor position
+- [x] Add "revese" fetch from a given cursor position
     - will return N entries going backwards from a given position in the index
-    - [ ] Add a fetch with query as well
+    - [x] Add a fetch with query as well
         - make it stop searching when it finds N entries or when it gets to the start of the list
         - make sure to indicate "no more results" if we get to the first entry
 
-- [ ] Store ObjectHistoryTracker histories and ObjectCache objects in sqlite
-    - [ ] cache N entries in memory at a time and evict least used if it fills up
-        - [ ] Evict M entries in the cache to allow for more room
-    - [ ] only write to sqlite when
-        - [ ] cache entry is evicted
-        - [ ] we are doing a 'save' operation
-    - [ ] make sure we save regularly
-        - [ ] when app is backgrounded
-        - [ ] after N seconds have elapsed since the last save (and there are unsaved entries)
-    - [ ] Design the wrapper around Sqlite:
-        - [ ] init with url
-        - [ ] if db doesn't exist, create it
-            - [ ] create the table
-        - [ ] add wrapper to insert a new object
-        - [ ] add wrapper to remove an existing object
-
+- [x] Store ObjectHistoryTracker histories and ObjectCache objects in sqlite
+    - [x] cache N entries in memory at a time and evict least used if it fills up
+        - [x] Evict M entries in the cache to allow for more room
+    - [x] only write to sqlite when
+        - [x] cache entry is evicted
+        - [x] we are doing a 'save' operation
+    - [x] make sure we save regularly
+        - [x] when app is backgrounded
+        - [x] after N seconds have elapsed since the last save (and there are unsaved entries)
+    - [x] Design the wrapper around Sqlite:
+        - [x] init with url
+        - [x] if db doesn't exist, create it
+            - [x] create the table
+        - [x] add wrapper to insert a new object
+        - [x] add wrapper to remove an existing object
 
 - [-] Figure out how to solve these hard questions
     - [-] If you have a large database and want to do a sort on a non-indexed property, how do you do it??
@@ -116,7 +167,7 @@
     - [x] Write some Swift code that loads a v2 journal file into mem and writes it out as v4
     - [x] Write an app that searches a directory for .journal files and outputs .journal-v4 files
 
-- [ ] BUG: if you type 'alice' in the people app and then add random entries, eventually one
+- [x] BUG: if you type 'alice' in the people app and then add random entries, eventually one
       will be "Alice" but it won't show up in the search results
 
 - [ ] Figure out background execution policy
@@ -210,13 +261,13 @@
              so large anyway (thousands of entries) that in practice we don't normally do partial
              results anyway.
 
-- [ ] Smarter tableView loading
+- [x] Smarter tableView loading
     - [x] Only fetch max number of entries that are visible at a time
     - [x] As user scrolls down, fetch more entries if needed
-    - [ ] Allow fetch results to complete asynchronously
+    - [x] Allow fetch results to complete asynchronously
         - i.e. show a "loading..." cell if needed
 
-- [ ] Test large databases
+- [x] Test large databases
     - [x] Modify PeopleApp to search name
         - add search field
         - as you type, redoes search query
@@ -231,29 +282,13 @@
     - [ ] Create test journal that has 100,000 entries
     - [ ] Create test journal that has 1,000,000 entries
 
-- [ ] Create utility app that can load any arbitrary database
+- [x] Create utility app that can load any arbitrary database
     - has search field where you can type fieldname:value ??
     - has a list of N entries (paged and loaded in memory on the fly)
 
 - [-] Make RemoteFileStoring.push(localFile: URL) be push(identifier:) instead
     => Can't really do this since RemoteFileStoring doesn't keep track of file locations (especially now
        that we have working folder and storage folder)
-
-- [ ] Test: RemoteFileStore.fetchFiles() returns an incomplete set of files and versions
-    - Should still work
-    - Files missing are just not updated
-
-- [ ] Error-recovery
-    - [ ] BUG: Couldn't parse some of hte journal data. Seems like we were at the wrong offset in the file ?
-        -> Yes, we likely had a bad journal file earlier that was out of date due to a bug. When we replaced
-           it, the byte index was then wrong.
-
-           We should make it so if a journal disappears, we should remove it from our object state history.
-           This way we can easily recover by deleting the journal file.
-
-    - [ ] TEST resiliency of file reader:
-        - if we encounter data before a newline that is just garbage, make sure we skip it and recover enough
-          to read the next proper line of data
 
 - [x] Feature: Implement Working Folder and Storage Folder
     - [x] JournalFileManager should have optional storageFolderUrl:
@@ -356,10 +391,10 @@
 
 - [x] Bleh, use expectation() and waitForExpectations() instead of holding onto journalManager as a test instance var
 
-- [ ] Move object-cache.json info to InMemObjectCache
-- [ ] Move object-tracker.json info to ObjectHistoryTracker
+- [-] Move object-cache.json info to InMemObjectCache
+- [-] Move object-tracker.json info to ObjectHistoryTracker
 
-    - [ ] Consider breaking subclassing Session to handle file-saving stuff:
+    - [x] Consider breaking subclassing Session to handle file-saving stuff:
         - FilebasedSession
 
 - [x] Design folder structure for everything
@@ -384,9 +419,9 @@
         - objectTracker.save(to: url)
         - journalManager.save(to: url)
 
-- [ ] More cleanup
-    - [ ] Rename ObjectCache to ObjectStore (also: InMemObjectStore)
-    - [ ] Move sortedIdentifiers (really, an index of all objects) into its own "cache"
+- [x] More cleanup
+    - [x] Rename ObjectCache to ObjectStore (also: InMemObjectStore)
+    - [x] Move sortedIdentifiers (really, an index of all objects) into its own "cache"
         - Maybe we can cache/store the index of all object identifiers to disk to reduce
           the need for loading all of them into memory one day
         - We can having a running count of all objects as well (including those that are
@@ -573,9 +608,9 @@
 
           - note: it will still need to do the fetch diffs operation at the end
 
-    - [ ] Implement saving
-        - [ ] ObjectCache saving
-            - [ ] InMemObjectCache
+    - [x] Implement saving
+        - [x] ObjectCache saving
+            - [x] InMemObjectCache
                 - [x] save to a URL path a json file
                     - [x] Implement .save(to:)
                 - [x] restore from a URL path
@@ -583,7 +618,7 @@
                         - [x] Could also just pass params in to init() that were loaded from disk externally
                     - [x] return nil on error
 
-        - [ ] ObjectHistoryTracker
+        - [x] ObjectHistoryTracker
             - [x] InMem version
                 - [x] save histories to json file
                     - [x] save to a URL path a json file
@@ -664,9 +699,4 @@
                 - once it calls our callback,
                     - update the cursor positions for the journals we played back
                     - save those cursor positions
-
-- [ ] Add support for rotating local identifiers
-    - Requirements:
-        - if local file gets too big, update local identifier
-        - must still be able to push local journals even if they are not the current one
 

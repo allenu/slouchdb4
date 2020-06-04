@@ -11,6 +11,26 @@ import SQLite
 import SlouchDB4
 
 class SqliteObjectHistoryStore: ObjectHistoryStoring {
+    
+    static func objectHistoryStoreExists(folderUrl: URL) -> Bool {
+        let objectHistorySqliteUrl = folderUrl.appendingPathComponent(sqliteFilename)
+        return FileManager.default.fileExists(atPath: objectHistorySqliteUrl.path)
+    }
+    
+    static func copyObjectHistoryStore(from sourceUrl: URL, to destinationUrl: URL) {
+        let sourceFileUrl = sourceUrl.appendingPathComponent(SqliteObjectHistoryStore.sqliteFilename)
+        let destinationFileUrl = destinationUrl.appendingPathComponent(SqliteObjectHistoryStore.sqliteFilename)
+        
+        // Remove file at destination if it's already there
+        if FileManager.default.fileExists(atPath: destinationFileUrl.path) {
+            try! FileManager.default.removeItem(at: destinationFileUrl)
+        }
+        
+        try! FileManager.default.copyItem(at: sourceFileUrl, to: destinationFileUrl)
+    }
+    
+    static let sqliteFilename = "object-history.sqlite3"
+    
     let connection: Connection
 
     let pendingUpdatesTable: Table
@@ -32,7 +52,7 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
     // the Document bundle folder itself. Use a temporary folder and when it comes time to save
     // to the doc folder, use save(to:)
     init?(folderUrl: URL) {
-        databaseWriteUrl = folderUrl.appendingPathComponent("object-history.sqlite3")
+        databaseWriteUrl = folderUrl.appendingPathComponent(SqliteObjectHistoryStore.sqliteFilename)
         var connection: Connection?
         do {
             connection = try Connection(databaseWriteUrl.path)
@@ -303,7 +323,7 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
         // Flush out the sqlite connection and then copy the contents of the file to fileUrl, unless
         // they are the same path
         
-        let fileUrl = folderUrl.appendingPathComponent("object-history.sqlite3")
+        let fileUrl = folderUrl.appendingPathComponent(SqliteObjectHistoryStore.sqliteFilename)
         
         if databaseWriteUrl != fileUrl {
             try! FileManager.default.copyItem(at: databaseWriteUrl, to: fileUrl)
