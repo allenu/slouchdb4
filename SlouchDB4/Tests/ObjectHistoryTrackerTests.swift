@@ -315,9 +315,9 @@ class ObjectHistoryTrackerTests: XCTestCase {
         // History state should be .fastForward right now
         
         let history = tracker.histories["1"]!
-        if case ObjectHistoryProcessingState.fastForward(let nextDiffIndex) = history.processingState {
+        if case ObjectHistoryProcessingState.fastForward(let nextCommandIndex) = history.processingState {
             // Next diff should be "2" since we have 0 and 1 already
-            XCTAssert(nextDiffIndex == 2)
+            XCTAssert(nextCommandIndex == 2)
         } else {
             XCTFail()
         }

@@ -22,7 +22,7 @@ class DatabaseTests: XCTestCase {
         let diff = ObjectDiff.insert(identifier: "1", timestamp: now, object: object)
         database.enqueue(diffs: [diff])
         
-        database.mergeEnqueued()
+        database.processEnqueued()
         
         if let fetchedObject = database.fetch(identifier: "1") {
             XCTAssert(fetchedObject.properties["name"] == JSONValue.string("John"))
@@ -42,7 +42,7 @@ class DatabaseTests: XCTestCase {
         let diff = ObjectDiff.insert(identifier: "1", timestamp: now, object: object)
         database.enqueue(diffs: [diff])
         
-        database.mergeEnqueued()
+        database.processEnqueued()
         
         if let fetchedObject = database.fetch(identifier: "1") {
             XCTAssert(fetchedObject.properties["name"] == JSONValue.string("John"))
@@ -56,7 +56,7 @@ class DatabaseTests: XCTestCase {
         let updateDiff = ObjectDiff.update(identifier: "1", timestamp: now.addingTimeInterval(1.0), properties: newProperties)
         
         database.enqueue(diffs: [updateDiff])
-        database.mergeEnqueued()
+        database.processEnqueued()
         
         if let updatedFetchedObject = database.fetch(identifier: "1") {
             XCTAssert(updatedFetchedObject.properties["name"] == JSONValue.string("Fred"))
@@ -76,7 +76,7 @@ class DatabaseTests: XCTestCase {
         let diff = ObjectDiff.insert(identifier: "1", timestamp: now, object: object)
         database.enqueue(diffs: [diff])
         
-        database.mergeEnqueued()
+        database.processEnqueued()
         
         if let fetchedObject = database.fetch(identifier: "1") {
             XCTAssert(fetchedObject.properties["name"] == JSONValue.string("John"))
@@ -86,7 +86,7 @@ class DatabaseTests: XCTestCase {
 
         let removeDiff = ObjectDiff.remove(identifier: "1", timestamp: now.addingTimeInterval(1.0))
         database.enqueue(diffs: [removeDiff])
-        database.mergeEnqueued()
+        database.processEnqueued()
         
         let removedFetchedObject = database.fetch(identifier: "1")
         XCTAssertNil(removedFetchedObject)
@@ -132,7 +132,7 @@ class DatabaseTests: XCTestCase {
         XCTAssert(newObjectStore.fetch(identifier: "1") == nil)
         XCTAssert(newObjectStore.fetch(identifier: "2") == nil)
 
-        database.mergeEnqueued()
+        database.processEnqueued()
 
         //
         let secondPathName = NSUUID().uuidString

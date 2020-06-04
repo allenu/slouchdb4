@@ -1,4 +1,40 @@
 
+- [ ] Redo how diff entries work
+    - client side API changes:
+
+        - rename "diffs" as "commands"
+            - Command just has to be Codable
+
+        - instead of insert(), remove(), update() 
+            - append(command: Command, to identifier: String)
+
+        - remove MergeResult and use startBulkCommands() and endBulkCommands()
+
+        - remove ObjectProvider and instead require a client API:
+
+            - startBulkCommands()
+                - indicates a stream commands will start coming
+                - this gives client an opportunity to set up data types to receive the commands
+
+            - endBulkCommands()
+                - indicates commands have ended
+                - gives client an opportunity to apply all the changes as a batch
+
+            - execute(commands: [Command], from playbackPosition: PlaybackPosition, to identifier: String) -> Bool
+                - take commands and apply them
+                - playbackPosition = Start | CurrentPosition (i.e. append)
+                    - Start means treat it as replacing any existing entries, if they exist
+                    - CurrentPosition means load current state and apply commands to it
+                - returns true if it was able to play back the commands
+                    - if false, means the commands were incomplete (perhaps it was just a series of "updates"
+                      but the first "insert" command doesn't exist)
+                    - if false is returned, Slouch should simply hold onto the commands and try again later (i.e.
+                      do not change seek head)
+
+    - internal changes:
+
+
+
 - [ ] Get it ready for production
 
 - [x] Add change notifications to PersonProvider to illustrate how to handle inserts, updates, deletions

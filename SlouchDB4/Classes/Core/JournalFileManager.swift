@@ -13,7 +13,7 @@ import Foundation
 //    - rootFolderUrl provided is some temporary folder
 //    - create locals/ subfolder
 //    - create remotes/ subfolder
-//    - when writeLocal(diffs:,to:) is called, destination stream is created/opened if not
+//    - when writeLocal(commands:,to:) is called, destination stream is created/opened if not
 //      done so yet, and appended to
 //
 // 2. Save is called on a URL
@@ -73,7 +73,7 @@ public class JournalFileManager: JournalFileManaging {
             assert(storageFolderUrl != workingFolderUrl)
             
             // Make sure to copy local journals over to the working folder so that we're ready to append.
-            // TODO: Maybe only copy on first write to the diff?
+            // TODO: Maybe only copy on first write to the command?
         }
     }
     
@@ -172,9 +172,9 @@ public class JournalFileManager: JournalFileManaging {
         }
     }
     
-    public func writeLocal(diffs: [ObjectDiff], to identifier: String) {
+    public func writeLocal(commands: [Command], to identifier: String) {
         if let localWriter = localWriters[identifier] {
-            localWriter.append(diffs: diffs)
+            localWriter.append(commands: commands)
         } else {
             let localsFolder = workingFolderUrl.appendingPathComponent("locals")
             let workingFolderFileUrl = localsFolder.appendingPathComponent("\(identifier).journal")
@@ -197,7 +197,7 @@ public class JournalFileManager: JournalFileManaging {
             // Now open the file
             if let localWriter = try? JournalFileWriter(url: workingFolderFileUrl) {
                 localWriters[identifier] = localWriter
-                localWriter.append(diffs: diffs)
+                localWriter.append(commands: commands)
             } else {
                 assertionFailure()
             }
@@ -242,9 +242,9 @@ public class JournalFileManager: JournalFileManaging {
         }
     }
     
-    public func readNextDiffs(from identifier: String, byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
+    public func readNextCommands(from identifier: String, byteOffset: UInt64, maxCommands: Int) -> JournalReadResult {
         if let remoteReader = remoteReaders[identifier] {
-            return remoteReader.readNextDiffs(byteOffset: byteOffset, maxDiffs: maxDiffs)
+            return remoteReader.readNextCommands(byteOffset: byteOffset, maxCommands: maxCommands)
         } else {
             let workingRemotesFolder = workingFolderUrl.appendingPathComponent("remotes")
             
@@ -270,11 +270,11 @@ public class JournalFileManager: JournalFileManaging {
                 let remoteReader = try? JournalFileReader(url: fileUrl) {
                 
                 remoteReaders[identifier] = remoteReader
-                return remoteReader.readNextDiffs(byteOffset: byteOffset, maxDiffs: maxDiffs)
+                return remoteReader.readNextCommands(byteOffset: byteOffset, maxCommands: maxCommands)
             } else {
                 // File does not exist in working folder. Error !
 //                assertionFailure()
-                return JournalReadResult(diffs: [], byteOffset: 0)
+                return JournalReadResult(commands: [], byteOffset: 0)
             }
         }
     }

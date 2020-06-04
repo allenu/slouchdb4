@@ -7,6 +7,7 @@
 //
 
 import Cocoa
+import SlouchDB4
 
 enum TableViewSourceDataType {
     case all
@@ -226,7 +227,16 @@ class ViewController: NSViewController {
             
             if let person = cacheWindow.item(at: selectedRow) {
                 // NOTE: We must go through the change tracker to make the edit!
-                document?.changeTracker.remove(identifier: person.identifier)
+                
+                let encoder = JSONEncoder()
+                let personDbOperation = PersonDbOperation(type: "remove", data: nil)
+                let data = try! encoder.encode(personDbOperation)
+                
+                let command = Command(objectIdentifier: person.identifier,
+                                      commandIdentifier: UUID().uuidString,
+                                      timestamp: Date(),
+                                      operation: data)
+                document?.changeTracker.append(command: command)
             }
         }
     }

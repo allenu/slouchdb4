@@ -20,40 +20,40 @@ public enum SyncFilesResponse {
 }
 
 public enum FetchJournalSuccessType {
-    case partialResults(diffs: [ObjectDiff], percent: Double)
-    case results(diffs: [ObjectDiff])
+    case partialResults(commands: [Command], percent: Double)
+    case results(commands: [Command])
 }
 
-public enum FetchJournalDiffsResponse {
+public enum FetchJournalCommandsResponse {
     case success(type: FetchJournalSuccessType)
     // case successNoChanges
     case failure
 }
 
-// CallbackWhenDiffsMerged is passed in to ensure that when the caller gets the diffs it tells us
+// CallbackWhenCommandsMerged is passed in to ensure that when the caller gets the commands it tells us
 // it is done so that we can save the updated journal states to file. This is to ensure that if
 // anything happens during the merge. On failure, the callback is nil since we do not care.
-public typealias CallbackWhenDiffsMerged = (Bool) -> Void
+public typealias CallbackWhenCommandsMerged = (Bool) -> Void
 
 public protocol JournalManaging {
     var localIdentifier: String { get }
     
-    func addToLocalJournal(diff: ObjectDiff)
-    func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void)
+    func addToLocalJournal(command: Command)
+    func fetchLatestCommands(completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void)
     
     func save(to folderUrl: URL)
 }
 
 public protocol ChangeTrackerDelegate: class {
-    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult)
-}
-
-public protocol ChangeTrackerDataSource: class {
-    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject?
+    func beginCommandExecution(_ changeTracker: ChangeTracker)
+    
+    func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool
+    
+    func endCommandExecution(_ changeTracker: ChangeTracker)
 }
 
 // ChangeTracker does the following:
-// - stores diffs on local Insert, Update, Delete requests into local journal
+// - stores commands on local Insert, Update, Delete requests into local journal
 // - coordinates "merging" remote changes into local object history
 // -
 //
@@ -67,7 +67,6 @@ public class ChangeTracker {
     let objectHistoryTracker: ObjectHistoryTracker
     
     public weak var delegate: ChangeTrackerDelegate?
-    public weak var dataSource: ChangeTrackerDataSource?
 
     public var localIdentifier: String {
         return journalManager.localIdentifier
@@ -83,61 +82,42 @@ public class ChangeTracker {
         journalManager.save(to: folderUrl)
     }
     
-    func enqueue(diffs: [ObjectDiff]) {
-        objectHistoryTracker.enqueue(diffs: diffs)
+    func enqueue(commands: [Command]) {
+        objectHistoryTracker.enqueue(commands: commands)
     }
     
-    func mergeEnqueued() {
-        let mergeResult = objectHistoryTracker.process(objectProvider: self)
-        delegate?.changeTracker(self, didRequestMerge: mergeResult)
+    func processEnqueued() {
+        objectHistoryTracker.process(commandExecutor: self)
     }
     
     // Local database changes
-    public func insert(identifier: String, object: DatabaseObject) {
-        let now = Date()
-        let diff = ObjectDiff.insert(identifier: identifier, timestamp: now, object: object)
-        journalManager.addToLocalJournal(diff: diff)
-        enqueue(diffs: [diff])
-        mergeEnqueued()
+    public func append(command: Command) {
+        journalManager.addToLocalJournal(command: command)
+        enqueue(commands: [command])
+        processEnqueued()
     }
-    
-    public func remove(identifier: String) {
-        let now = Date()
-        let diff = ObjectDiff.remove(identifier: identifier, timestamp: now)
-        journalManager.addToLocalJournal(diff: diff)
-        enqueue(diffs: [diff])
-        mergeEnqueued()
-    }
-    
-    public func update(identifier: String, updatedProperties: [String : JSONValue]) {
-        let now = Date()
-        let diff = ObjectDiff.update(identifier: identifier, timestamp: now, properties: updatedProperties)
-        journalManager.addToLocalJournal(diff: diff)
-        enqueue(diffs: [diff])
-        mergeEnqueued()
-    }
-    
+
     public func sync(completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
-        journalManager.fetchLatestDiffs(completion: { [weak self] response, callbackWhenDiffsMerged in
+        journalManager.fetchLatestCommands(completion: { [weak self] response, callbackWhenCommandsMerged in
             guard let strongSelf = self else { return }
             
             switch response {
             case .success(let type):
                 // TODO: Do processing in background thread
                 
-                let processDiffs: ([ObjectDiff]) -> Void = { diffs in
-                    strongSelf.enqueue(diffs: diffs)
+                let processCommands: ([Command]) -> Void = { commands in
+                    strongSelf.enqueue(commands: commands)
                 }
                 
                 switch type {
-                case .partialResults(let diffs, let percent):
-                    processDiffs(diffs)
+                case .partialResults(let commands, let percent):
+                    processCommands(commands)
                     DispatchQueue.main.async {
 
                         // Process the partial results and let JournalManager that we've
                         // saved them.
-                        strongSelf.mergeEnqueued()
-                        callbackWhenDiffsMerged?(true)
+                        strongSelf.processEnqueued()
+                        callbackWhenCommandsMerged?(true)
 
                         // Tell client of ChangeTracker that we have partial results ready.
                         partialResults(percent)
@@ -146,11 +126,11 @@ public class ChangeTracker {
                         strongSelf.sync(completion: completion, partialResults: partialResults)
                     }
                     
-                case .results(let diffs):
-                    processDiffs(diffs)
+                case .results(let commands):
+                    processCommands(commands)
                     DispatchQueue.main.async {
-                        strongSelf.mergeEnqueued()
-                        callbackWhenDiffsMerged?(true)
+                        strongSelf.processEnqueued()
+                        callbackWhenCommandsMerged?(true)
                         
                         completion(.success)
                     }
@@ -158,7 +138,7 @@ public class ChangeTracker {
 
             case .failure:
                 DispatchQueue.main.async {
-                    callbackWhenDiffsMerged?(false)
+                    callbackWhenCommandsMerged?(false)
                     completion(.failure)
                 }
             }
@@ -166,8 +146,16 @@ public class ChangeTracker {
     }
 }
 
-extension ChangeTracker: ObjectProvider {
-    public func object(for identifier: String) -> DatabaseObject? {
-        return dataSource?.changeTracker(self, objectFor: identifier)
+extension ChangeTracker: CommandExecutor {
+    public func beginCommandExecution() {
+        delegate?.beginCommandExecution(self)
+    }
+    
+    public func execute(commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool {
+        return delegate?.changeTracker(self, requestsExecute: commands, for: identifier, startingAt: playbackPosition) ?? false
+    }
+    
+    public func endCommandExecution() {
+        delegate?.endCommandExecution(self)
     }
 }

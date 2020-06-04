@@ -9,22 +9,22 @@
 import Foundation
 
 public struct JournalCursor: Codable {
-    public let nextDiffIndex: Int
+    public let nextCommandIndex: Int
     public let byteOffset: UInt64
     public let endOfFile: Bool
 }
 
 public struct JournalReadResult {
-    public let diffs: [ObjectDiff]
+    public let commands: [Command]
     public let byteOffset: UInt64
     
-    public init(diffs: [ObjectDiff], byteOffset: UInt64) {
-        self.diffs = diffs
+    public init(commands: [Command], byteOffset: UInt64) {
+        self.commands = commands
         self.byteOffset = byteOffset
     }
 }
 
 public protocol JournalReadable {
-    func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult
+    func readNextCommands(byteOffset: UInt64, maxCommands: Int) -> JournalReadResult
     func close()
 }

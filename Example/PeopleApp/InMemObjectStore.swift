@@ -20,20 +20,15 @@ public struct FetchCursor {
     public let type: String?
     public let nextObjectOffset: Int
     public let noMoreResults: Bool
-    let predicate: ((FetchedDatabaseObject) -> Bool)?
-}
-
-public struct FetchedDatabaseObject {
-    public let identifier: String
-    public let object: DatabaseObject
+    let predicate: ((Person) -> Bool)?
 }
 
 public struct FetchResult {
-    public let results: [FetchedDatabaseObject]
+    public let results: [Person]
     public let cursor: FetchCursor
 }
 
-public typealias ObjectDictionary = [String : DatabaseObject]
+public typealias ObjectDictionary = [String : Person]
 
 public class InMemObjectStore {
     public static let maxFetchCount: Int = 100
@@ -98,13 +93,13 @@ public class InMemObjectStore {
             
             // Apply the changes
             mergeResult.insertedObjects.forEach { identifier, object in
-                insert(identifier: identifier, object: object)
+                insert(identifier: identifier, object: object.object)
                 
                 sortedIdentifiers.insert(identifier)
             }
 
             mergeResult.updatedObjects.forEach { identifier, object in
-                replace(identifier: identifier, object: object)
+                replace(identifier: identifier, object: object.object)
                 
                 assert(sortedIdentifiers.contains(identifier))
             }
@@ -136,11 +131,11 @@ public class InMemObjectStore {
         objects.removeValue(forKey: identifier)
     }
 
-    public func fetch(identifier: String) -> DatabaseObject? {
+    public func fetch(identifier: String) -> Person? {
         return objects[identifier]
     }
     
-    public func fetch(of type: String? = nil, limitCount: Int = InMemObjectStore.maxFetchCount, predicate: ((FetchedDatabaseObject) -> Bool)? = nil) -> FetchResult {
+    public func fetch(of type: String? = nil, limitCount: Int = InMemObjectStore.maxFetchCount, predicate: ((Person) -> Bool)? = nil) -> FetchResult {
         let cursor = FetchCursor(type: type, nextObjectOffset: 0, noMoreResults: false, predicate: predicate)
         return fetchMore(cursor: cursor, limitCount: limitCount)
     }
@@ -148,7 +143,7 @@ public class InMemObjectStore {
     public func fetchMore(cursor: FetchCursor, limitCount: Int = InMemObjectStore.maxFetchCount) -> FetchResult {
         // If we've gone past the index by now, stop
         var currentPosition = cursor.nextObjectOffset
-        var collectedItems: [FetchedDatabaseObject] = []
+        var collectedItems: [Person] = []
         while currentPosition < sortedIdentifiers.count && collectedItems.count < limitCount {
             let nextIdentifier = sortedIdentifiers[currentPosition]
             

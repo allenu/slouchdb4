@@ -24,6 +24,7 @@
 		B71189B123E5FFCA00D29302 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B71189AF23E5FFCA00D29302 /* Main.storyboard */; };
 		B71189B823E6004500D29302 /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189B723E6004500D29302 /* Person.swift */; };
 		B71189C123E749B200D29302 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
+		B72C0C5A2488C81600A24C9E /* MergeResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = B72C0C572488C5EE00A24C9E /* MergeResult.swift */; };
 		B75F21F12410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
 		B75F21F22410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
 		B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
@@ -34,8 +35,6 @@
 		B76BA99723F877CF00BB3B87 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = B76BA99623F877CF00BB3B87 /* Assets.xcassets */; };
 		B76BA99A23F877CF00BB3B87 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = B76BA99823F877CF00BB3B87 /* Main.storyboard */; };
 		B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
-		B76BA9AD240246B200BB3B87 /* InMemObjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */; };
-		B76BA9AE240248BA00BB3B87 /* InMemObjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */; };
 		B76BA9B024024B7400BB3B87 /* InMemObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */; };
 		B76BA9B124024B7900BB3B87 /* InMemObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AF24024B7400BB3B87 /* InMemObjectHistoryStore.swift */; };
 /* End PBXBuildFile section */
@@ -83,6 +82,7 @@
 		B71189B323E5FFCA00D29302 /* PeopleApp.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = PeopleApp.entitlements; sourceTree = "<group>"; };
 		B71189B723E6004500D29302 /* Person.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = Person.swift; sourceTree = "<group>"; };
 		B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FileSystemRemoteFileStore.swift; sourceTree = "<group>"; };
+		B72C0C572488C5EE00A24C9E /* MergeResult.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MergeResult.swift; sourceTree = "<group>"; };
 		B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SqliteObjectHistoryStore.swift; sourceTree = "<group>"; };
 		B75F21F4241226DB00AD7C68 /* PersonProvider.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PersonProvider.swift; sourceTree = "<group>"; };
 		B75F21F62412271100AD7C68 /* CacheWindow.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CacheWindow.swift; sourceTree = "<group>"; };
@@ -253,6 +253,7 @@
 				B71189B323E5FFCA00D29302 /* PeopleApp.entitlements */,
 				B75F21F4241226DB00AD7C68 /* PersonProvider.swift */,
 				B75F21F62412271100AD7C68 /* CacheWindow.swift */,
+				B72C0C572488C5EE00A24C9E /* MergeResult.swift */,
 			);
 			path = PeopleApp;
 			sourceTree = "<group>";
@@ -629,8 +630,8 @@
 				B71189A823E5FFC700D29302 /* AppDelegate.swift in Sources */,
 				B75F21F5241226DB00AD7C68 /* PersonProvider.swift in Sources */,
 				B76BA9B024024B7400BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
+				B72C0C5A2488C81600A24C9E /* MergeResult.swift in Sources */,
 				B71189B823E6004500D29302 /* Person.swift in Sources */,
-				B76BA9AD240246B200BB3B87 /* InMemObjectStore.swift in Sources */,
 				B71189AC23E5FFC700D29302 /* Document.swift in Sources */,
 				B75F21F72412271100AD7C68 /* CacheWindow.swift in Sources */,
 				B71189C123E749B200D29302 /* FileSystemRemoteFileStore.swift in Sources */,
@@ -646,7 +647,6 @@
 				B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */,
 				B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */,
 				B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */,
-				B76BA9AE240248BA00BB3B87 /* InMemObjectStore.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

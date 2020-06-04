@@ -16,9 +16,9 @@ enum ObjectHistoryProcessingStateFileRepresentation: String, Codable {
 
 struct ObjectHistoryStateFileRepresentation: Codable {
     let processingState: ObjectHistoryProcessingStateFileRepresentation
-    let fastForwardNextDiffIndex: Int // only used if fastForward
+    let fastForwardNextCommandIndex: Int // only used if fastForward
     
-    let diffs: [ObjectDiffJsonRepresentation]
+    let commands: [Command]
 }
 
 struct ObjectHistoryFileRepresentation: Codable {
@@ -57,17 +57,14 @@ public class InMemObjectHistoryStore: ObjectHistoryStoring {
                 let processingState: ObjectHistoryProcessingState
                 switch objectHistoryStateRepresentation.processingState {
                 case .fastForward:
-                    processingState = .fastForward(nextDiffIndex: objectHistoryStateRepresentation.fastForwardNextDiffIndex)
+                    processingState = .fastForward(nextCommandIndex: objectHistoryStateRepresentation.fastForwardNextCommandIndex)
                     
                 case .replay:
                     processingState = .replay
                 }
                 
-                let diffs: [ObjectDiff] = objectHistoryStateRepresentation.diffs.map { diffFileRepresentation in
-                    let objectDiff = ObjectDiff(from: diffFileRepresentation)
-                    return objectDiff
-                }
-                let history = ObjectHistoryState(processingState: processingState, diffs: diffs)
+                let history = ObjectHistoryState(processingState: processingState,
+                                                 commands: objectHistoryStateRepresentation.commands)
                 histories[identifier] = history
             }
             objectHistoryStore = InMemObjectHistoryStore(histories: histories, pendingUpdates: fileRepresentation.pendingUpdates)
@@ -89,22 +86,22 @@ public class InMemObjectHistoryStore: ObjectHistoryStoring {
             let identifier = keyValue.key
             let history = keyValue.value
             
-            let fastForwardNextDiffIndex: Int
+            let fastForwardNextCommandIndex: Int
             let processingStateFileRepresentation: ObjectHistoryProcessingStateFileRepresentation
             switch history.processingState {
-            case .fastForward(let nextDiffIndex):
+            case .fastForward(let nextCommandIndex):
                 processingStateFileRepresentation = .fastForward
-                fastForwardNextDiffIndex = nextDiffIndex
+                fastForwardNextCommandIndex = nextCommandIndex
                 
             case .replay:
                 processingStateFileRepresentation = .replay
-                fastForwardNextDiffIndex = 0
+                fastForwardNextCommandIndex = 0
             }
             
-            let diffs = history.diffs.map { $0.jsonRepresentation }
+            let commands = history.commands
             let historyFileRepresentation = ObjectHistoryStateFileRepresentation(processingState: processingStateFileRepresentation,
-                                                                                 fastForwardNextDiffIndex: fastForwardNextDiffIndex,
-                                                                                 diffs: diffs)
+                                                                                 fastForwardNextCommandIndex: fastForwardNextCommandIndex,
+                                                                                 commands: commands)
             historiesFileRepresentation[identifier] = historyFileRepresentation
         }
         let fileData = ObjectHistoryFileRepresentation(histories: historiesFileRepresentation, pendingUpdates: pendingUpdates)

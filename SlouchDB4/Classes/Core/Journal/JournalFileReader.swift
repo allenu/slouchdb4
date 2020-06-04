@@ -11,7 +11,7 @@ import Foundation
 public class JournalFileReader: JournalReadable {
     static let readBufferSize: Int = 64*1024 // 64k read buffer
     static let lowBufferSize: Int = 4*1024  // If we have under 4k of bytes, fetch to fill it up
-    // NOTE: The assumption is that 4k is big enough to hold one diff. If not, then we have a problem
+    // NOTE: The assumption is that 4k is big enough to hold one command. If not, then we have a problem
     // because we may never find a newline in the current buffer.
     
     let url: URL
@@ -31,7 +31,7 @@ public class JournalFileReader: JournalReadable {
         fileHandle.closeFile()
     }
     
-    public func readNextDiffs(byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult {
+    public func readNextCommands(byteOffset: UInt64, maxCommands: Int) -> JournalReadResult {
         if self.byteOffset != byteOffset {
             // Seek to that position
             var seekSucceeded = false
@@ -51,7 +51,7 @@ public class JournalFileReader: JournalReadable {
             self.fileDataEOF = false
             
             if !seekSucceeded {
-                return JournalReadResult(diffs: [], byteOffset: self.byteOffset)
+                return JournalReadResult(commands: [], byteOffset: self.byteOffset)
             }
         }
         
@@ -88,12 +88,12 @@ public class JournalFileReader: JournalReadable {
             }
         }
         
-        var diffs: [ObjectDiff] = []
+        var commands: [Command] = []
 
         var encounteredEndOfFile: Bool = false
         
         readChunksIfNeeded()
-        while let fileData = self.fileData, !encounteredEndOfFile && diffs.count < maxDiffs {
+        while let fileData = self.fileData, !encounteredEndOfFile && commands.count < maxCommands {
             if fileData.count == 0 {
                 encounteredEndOfFile = true
                 break
@@ -102,51 +102,28 @@ public class JournalFileReader: JournalReadable {
             if let newlineIndex = fileData.firstIndex(of: 0x0a) {
                 assert(newlineIndex < fileData.count)
                 
-                let jsonDiffData = fileData.prefix(newlineIndex)
+                let jsonCommandData = fileData.prefix(newlineIndex)
                 
                 // Copy remaining bytes into new buffer. Need to do this since firstIndex() above doesn't
                 // take into account subsequences from firstIndex/dropFirst operations and so messes up
                 // indexing.
-                let dataWithJsonDiffRemoved = fileData.dropFirst(newlineIndex + 1) // skip newline as well
-                let newBufferSize = dataWithJsonDiffRemoved.count
-                dataWithJsonDiffRemoved.withUnsafeBytes( { bytes in
+                let dataWithJsonCommandRemoved = fileData.dropFirst(newlineIndex + 1) // skip newline as well
+                let newBufferSize = dataWithJsonCommandRemoved.count
+                dataWithJsonCommandRemoved.withUnsafeBytes( { bytes in
                     self.fileData = Data(bytes: bytes, count: newBufferSize)
                 })
                 
                 // Update byte offset
                 self.byteOffset = self.byteOffset + UInt64(newlineIndex + 1) // Include newline in total bytes processed for this line
                 
-                if jsonDiffData.count > 0 {
-                    let str = String(data: jsonDiffData, encoding: .utf8)!
+                if jsonCommandData.count > 0 {
+                    let str = String(data: jsonCommandData, encoding: .utf8)!
                     print("Here's the data: \(str))")
                     
                     let decoder = JSONDecoder()
                     decoder.dateDecodingStrategy = .iso8601
-                    if let jsonRepresentation = try? decoder.decode(ObjectDiffJsonRepresentation.self, from: jsonDiffData) {
-                        
-                        var objectDiff: ObjectDiff? = nil
-                        switch jsonRepresentation.diffType {
-                        case .remove:
-                            objectDiff = .remove(identifier: jsonRepresentation.identifier, timestamp: jsonRepresentation.timestamp)
-                            
-                        case .insert:
-                            if let properties = jsonRepresentation.properties, let type = jsonRepresentation.type {
-                                objectDiff = .insert(identifier: jsonRepresentation.identifier, timestamp: jsonRepresentation.timestamp, object: DatabaseObject(type: type, properties: properties))
-                            } else {
-                                assertionFailure("Bad insert")
-                            }
-                            
-                        case .update:
-                            if let properties = jsonRepresentation.properties {
-                                objectDiff = .update(identifier: jsonRepresentation.identifier, timestamp: jsonRepresentation.timestamp, properties: properties)
-                            } else {
-                                assertionFailure("Bad update")
-                            }
-                        }
-                        
-                        if let objectDiff = objectDiff {
-                            diffs.append(objectDiff)
-                        }
+                    if let command = try? decoder.decode(Command.self, from: jsonCommandData) {
+                        commands.append(command)
                         
                         if let remainingData = self.fileData {
                             encounteredEndOfFile = remainingData.count == 0
@@ -177,6 +154,6 @@ public class JournalFileReader: JournalReadable {
         }
         
         // No more data, so return what we have
-        return JournalReadResult(diffs: diffs, byteOffset: self.byteOffset)
+        return JournalReadResult(commands: commands, byteOffset: self.byteOffset)
     }
 }

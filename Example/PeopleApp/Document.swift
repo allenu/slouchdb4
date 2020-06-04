@@ -9,6 +9,11 @@
 import Cocoa
 import SlouchDB4
 
+struct PersonDbOperation: Codable {
+    let type: String
+    let data: Data?
+}
+
 class Document: NSDocument {
     var changeTracker: ChangeTracker
     
@@ -17,6 +22,11 @@ class Document: NSDocument {
 //    var objectStore = InMemObjectStore()
     
     var personProvider: PersonProvider
+    
+    var bulkInsertedObjects: [String : Person] = [:]
+    var bulkUpdatedObjects: [String : Person] = [:]
+    var bulkRemovedObjects: [String] = []
+
     
     override init() {
         // Add your subclass-specific initialization here.
@@ -43,7 +53,6 @@ class Document: NSDocument {
         super.init()
 
         changeTracker.delegate = self
-        changeTracker.dataSource = self
     }
 
     override class var autosavesInPlace: Bool {
@@ -94,7 +103,6 @@ class Document: NSDocument {
 
                     self.changeTracker = changeTracker
                     self.changeTracker.delegate = self
-                    self.changeTracker.dataSource = self
                     
                     if let personProvider = PersonProvider(folderUrl: tempFolderUrl) {
                         self.personProvider = personProvider
@@ -118,17 +126,29 @@ class Document: NSDocument {
 
     // Person stuff
     func add(person: Person) {
-        let properties: [String : JSONValue] = [
-            Person.namePropertyKey : .string(person.name),
-            Person.agePropertyKey : .int(person.age),
-            Person.weightPropertyKey : .int(person.weight)
-        ]
-        changeTracker.insert(identifier: UUID().uuidString, object: DatabaseObject(type: "person", properties: properties))
+        let encoder = JSONEncoder()
+        let personData = try! encoder.encode(person)
+        let personDbOperation = PersonDbOperation(type: "insert", data: personData)
+        let data = try! encoder.encode(personDbOperation)
+        
+        let command = Command(objectIdentifier: person.identifier,
+                              commandIdentifier: UUID().uuidString,
+                              timestamp: Date(),
+                              operation: data)
+        changeTracker.append(command: command)
+        
         self.updateChangeCount(.changeDone)
     }
    
     func remove(person: Person) {
-       changeTracker.remove(identifier: person.identifier)
+        let encoder = JSONEncoder()
+        let personDbOperation = PersonDbOperation(type: "remove", data: nil)
+        let data = try! encoder.encode(personDbOperation)
+        
+        let command = Command(objectIdentifier: person.identifier,
+                              commandIdentifier: UUID().uuidString,
+                              timestamp: Date(), operation: data)
+        changeTracker.append(command: command)
     }
 
     /*
@@ -173,22 +193,57 @@ extension Document: ChangeTrackerDelegate {
 //        objectStore.apply(mergeResult: mergeResult)
         personProvider.apply(mergeResult: mergeResult)
     }
-}
 
-extension Document: ChangeTrackerDataSource {
-    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject? {
-//        return objectStore.fetch(identifier: identifier)
+    func beginCommandExecution(_ changeTracker: ChangeTracker) {
+        bulkRemovedObjects = []
+        bulkInsertedObjects = [:]
+        bulkUpdatedObjects = [:]
+    }
+    
+    func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool {
 
-        if let person = personProvider.person(for: identifier) {
-            let properties: [String : JSONValue] = [
-                Person.namePropertyKey : .string(person.name),
-                Person.agePropertyKey : .int(person.age),
-                Person.weightPropertyKey : .int(person.weight)
-            ]
-            let object = DatabaseObject(type: "person", properties: properties)
-            return object
-        } else {
-            return nil
+        let decoder = JSONDecoder()
+
+        // TODO: Process each command before doing bulk insert/remove/etc
+        // i.e. if got "insert"
+        // - see if existing item. if so, pendingDelete = true
+        // if "update",
+        // - look up updated entry so far and modify it
+        // if "remove"
+        // - pendingDelete = true
+        // when get to end of commands, then go through each item
+        commands.forEach { command in
+            if let operation = try? decoder.decode(PersonDbOperation.self, from: command.operation) {
+                Swift.print("found operation: \(operation)")
+                
+                switch operation.type {
+                case "insert":
+                    if let data = operation.data,
+                        let person = try? decoder.decode(Person.self, from: data) {
+                        bulkInsertedObjects[identifier] = person
+                    }
+                    
+                case "remove":
+                    bulkRemovedObjects.append(identifier)
+                    
+                default:
+                    break
+                }
+                
+            } else {
+                assertionFailure()
+            }
         }
+        
+        return true
+    }
+    
+    func endCommandExecution(_ changeTracker: ChangeTracker) {
+        let mergeResult = MergeResult(insertedObjects: bulkInsertedObjects,
+                                      removedObjects: bulkRemovedObjects,
+                                      updatedObjects: bulkUpdatedObjects)
+        
+        personProvider.apply(mergeResult: mergeResult)
     }
 }
+

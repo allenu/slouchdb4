@@ -23,6 +23,10 @@ class ViewController: NSViewController {
     var fetchCursor: FetchCursor?
     var isFetching = false
     
+    var bulkInsertedObjects: [String : FetchedDatabaseObject] = [:]
+    var bulkUpdatedObjects: [String : FetchedDatabaseObject] = [:]
+    var bulkRemovedObjects: [String] = []
+    
     @IBOutlet weak var pathTextField: NSTextField!
     @IBOutlet weak var tableView: NSTableView!
     
@@ -44,7 +48,6 @@ class ViewController: NSViewController {
         
         let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
         changeTracker.delegate = self
-        changeTracker.dataSource = self
         
         // Sync it ...
         changeTracker.sync(completion: { response in
@@ -210,13 +213,31 @@ extension ViewController: NSTableViewDataSource {
 }
 
 extension ViewController: ChangeTrackerDelegate {
-    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult) {
-        objectStore.apply(mergeResult: mergeResult)
+    func beginCommandExecution(_ changeTracker: ChangeTracker) {
+        bulkRemovedObjects = []
+        bulkInsertedObjects = [:]
+        bulkUpdatedObjects = [:]
     }
-}
-
-extension ViewController: ChangeTrackerDataSource {
-    func changeTracker(_ changeTracker: ChangeTracker, objectFor identifier: String) -> DatabaseObject? {
-        return objectStore.fetch(identifier: identifier)
+    
+    func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool{
+        // See if object already exists
+        
+        switch playbackPosition {
+        case .start:
+            // See if we need to remove it
+            break
+            
+        case .currentPosition:
+            // Object must exist already
+            break
+        }
+        
+    }
+    
+    func endCommandExecution(_ changeTracker: ChangeTracker) {
+        let mergeResult = MergeResult(insertedObjects: bulkInsertedObjects,
+                                      removedObjects: bulkRemovedObjects,
+                                      updatedObjects: bulkUpdatedObjects)
+        objectStore.apply(mergeResult: mergeResult)
     }
 }

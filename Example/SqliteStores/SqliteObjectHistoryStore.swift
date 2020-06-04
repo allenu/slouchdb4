@@ -35,16 +35,16 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
 
     let pendingUpdatesTable: Table
     let processingStatesTable: Table
-    let objectDiffsTable: Table
+    let commandsTable: Table
     
 //    let autoIdColumn = Expression<Int64>("autoId")
     let idColumn = Expression<String>("identifier")
+    let objectIdColumn = Expression<String>("objectIdentifier")
+    let commandIdColumn = Expression<String>("commandIdentifier")
     let processingStateTypeColumn = Expression<Int64>("type")
-    let diffIndexColumn = Expression<Int64>("diffIndex")
-    let diffTypeColumn = Expression<Int64>("diffType")
+    let commandIndexColumn = Expression<Int64>("commandIndex")
     let timestampColumn = Expression<Date>("timestamp")
-    let objectTypeColumn = Expression<String?>("objectType")
-    let jsonPropertiesColumn = Expression<String?>("jsonProperties")
+    let operationColumn = Expression<Data>("operation")
     
     let databaseWriteUrl: URL
 
@@ -66,10 +66,10 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
             // Initialize three tables:
             // - PendingUpdates -- database of just identifier strings
             // - ProcessingStates -- database of processing state type + index (if ffwd)
-            // - ObjectDiffs -- database of diffs with primary key of objectIdentifier + timestamp
+            // - Commands -- database of commands with primary key of objectIdentifier + timestamp
             pendingUpdatesTable = Table("PendingUpdates")
             processingStatesTable = Table("ProcessingStates")
-            objectDiffsTable = Table("Diffs")
+            commandsTable = Table("Commands")
             
             do {
                 try setupTables()
@@ -91,16 +91,15 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
         try connection.run(processingStatesTable.create { t in
             t.column(idColumn, primaryKey: true)
             t.column(processingStateTypeColumn)
-            t.column(diffIndexColumn)
+            t.column(commandIndexColumn)
         })
         
-        try connection.run(objectDiffsTable.create { t in
+        try connection.run(commandsTable.create { t in
 //            t.column(autoIdColumn, primaryKey: true)
-            t.column(idColumn)
+            t.column(objectIdColumn)
+            t.column(commandIdColumn)
             t.column(timestampColumn)
-            t.column(diffTypeColumn)
-            t.column(objectTypeColumn)
-            t.column(jsonPropertiesColumn)
+            t.column(operationColumn)
         })
     }
     
@@ -154,12 +153,12 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
             if let processingStateRow = result.makeIterator().next() {
                 
                 let processingStateType: Int64 = processingStateRow[processingStateTypeColumn]
-                let diffIndex: Int64 = processingStateRow[diffIndexColumn]
+                let commandIndex: Int64 = processingStateRow[commandIndexColumn]
                 
                 let processingState: ObjectHistoryProcessingState?
                 switch processingStateType {
                 case 0: // ffwd
-                    processingState = .fastForward(nextDiffIndex: Int(diffIndex))
+                    processingState = .fastForward(nextCommandIndex: Int(commandIndex))
                     
                 case 1: // replay
                     processingState = .replay
@@ -170,55 +169,27 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
                 }
                 
                 if let processingState = processingState {
-                    // If so, then fetch all the diffs for it
+                    // If so, then fetch all the commands for it
                     
-                    let objectDiffsQuery = objectDiffsTable.filter(idColumn == identifier).order(timestampColumn.asc)
-                    let objectDiffsResult = try connection.prepare(objectDiffsQuery)
+                    let commandsQuery = commandsTable.filter(objectIdColumn == identifier).order(timestampColumn.asc)
+                    let commandsResult = try connection.prepare(commandsQuery)
 
-                    let iterator = objectDiffsResult.makeIterator()
-                    var objectDiffs: [ObjectDiff] = []
-                    while let diffRow = iterator.next() {
-                        let diffType: Int64 = diffRow[diffTypeColumn]
-                        let objectType: String? = diffRow[objectTypeColumn]
-                        let timestamp: Date = diffRow[timestampColumn]
-                        let jsonProperties: String? = diffRow[jsonPropertiesColumn]
+                    let iterator = commandsResult.makeIterator()
+                    var commands: [Command] = []
+                    while let commandRow = iterator.next() {
+                        let objectIdentifier: String = commandRow[objectIdColumn]
+                        let commandIdentifier: String = commandRow[commandIdColumn]
+                        let timestamp: Date = commandRow[timestampColumn]
+                        let operation: Data = commandRow[operationColumn]
                         
-                        let properties: [String : JSONValue]?
-                        if let jsonProperties = jsonProperties,
-                            let data = jsonProperties.data(using: .utf8) {
-                            properties = try? decoder.decode([String : JSONValue].self, from: data)
-                        } else {
-                            properties = nil
-                        }
-                        
-                        switch diffType {
-                        case 0: // insert
-                            if let properties = properties, let objectType = objectType {
-                                let object = DatabaseObject(type: objectType, properties: properties)
-                                objectDiffs.append(.insert(identifier: identifier, timestamp: timestamp, object: object))
-                            } else {
-                                assertionFailure("Unrecognized data")
-                            }
-                            
-                        case 1: // update
-                            if let properties = properties {
-                                assert(objectType == nil)
-                                
-                                objectDiffs.append(.update(identifier: identifier, timestamp: timestamp, properties: properties))
-                            } else {
-                                assertionFailure("Unrecognized data")
-                            }
-
-                        case 2: // delete
-                            objectDiffs.append(.remove(identifier: identifier, timestamp: timestamp))
-                            
-                        default:
-                            assertionFailure("Unrecognized diffType")
-                            return nil
-                        }
+                        let command = Command(objectIdentifier: objectIdentifier,
+                                              commandIdentifier: commandIdentifier,
+                                              timestamp: timestamp,
+                                              operation: operation)
+                        commands.append(command)
                     }
                     
-                    let objectHistoryState = ObjectHistoryState(processingState: processingState, diffs: objectDiffs)
+                    let objectHistoryState = ObjectHistoryState(processingState: processingState, commands: commands)
                     return objectHistoryState
                 }
 
@@ -237,22 +208,22 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
     func update(objectHistoryState: ObjectHistoryState, for identifier: String) {
         
         let processingStateType: Int64
-        let diffIndex: Int64
+        let commandIndex: Int64
         switch objectHistoryState.processingState {
-        case .fastForward(let nextDiffIndex):
+        case .fastForward(let nextCommandIndex):
             processingStateType = 0
-            diffIndex = Int64(nextDiffIndex)
+            commandIndex = Int64(nextCommandIndex)
             
         case .replay:
             processingStateType = 1
-            diffIndex = 0
+            commandIndex = 0
         }
         
         // Write to Processing States
         let insertProcessingState = processingStatesTable.insert(
             idColumn <- identifier,
             processingStateTypeColumn <- processingStateType,
-            diffIndexColumn <- diffIndex)
+            commandIndexColumn <- commandIndex)
         
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .iso8601
@@ -264,50 +235,26 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
             
             let rowid = try connection.run(insertProcessingState)
 
-            // Write to ObjectDiffs
+            // Write to commands
 
-            // First delete all old object diffs (kind of inefficient...)
-            let deleteObjectDiffsQuery = objectDiffsTable.filter(idColumn == identifier)
-            try connection.run(deleteObjectDiffsQuery.delete())
+            // First delete all old object commands (kind of inefficient...)
+            let deleteCommandsQuery = commandsTable.filter(objectIdColumn == identifier)
+            try connection.run(deleteCommandsQuery.delete())
             
             // Insert all new ones
-            objectHistoryState.diffs.forEach { diff in
+            objectHistoryState.commands.forEach { command in
                 
-                let insertCommand: SQLite.Insert
-                switch diff {
-                case .insert(let identifier, let timestamp, let object):
-                    let data = try! encoder.encode(object.properties)
-                    let jsonPropertiesString: String = String(data: data, encoding: .utf8)!
-                    insertCommand = objectDiffsTable.insert(
-                        idColumn <- identifier,
-                        timestampColumn <- timestamp,
-                        diffTypeColumn <- 0,
-                        objectTypeColumn <- object.type,
-                        jsonPropertiesColumn <- jsonPropertiesString
-                    )
+                let insertCommand = commandsTable.insert(
+                    objectIdColumn <- command.objectIdentifier,
+                    commandIdColumn <- command.commandIdentifier,
+                    timestampColumn <- command.timestamp,
+                    operationColumn <- command.operation
+                )
 
-                case .update(let identifier, let timestamp, let properties):
-                    let data = try! encoder.encode(properties)
-                    let jsonPropertiesString: String = String(data: data, encoding: .utf8)!
-                    insertCommand = objectDiffsTable.insert(
-                        idColumn <- identifier,
-                        timestampColumn <- timestamp,
-                        diffTypeColumn <- 1,
-                        jsonPropertiesColumn <- jsonPropertiesString
-                    )
-
-                case .remove(let identifier, let timestamp):
-                    insertCommand = objectDiffsTable.insert(
-                        idColumn <- identifier,
-                        timestampColumn <- timestamp,
-                        diffTypeColumn <- 2
-                    )
-                }
-                
                 do {
                     let rowid = try connection.run(insertCommand)
                 } catch {
-                    print("Error inserting objectDiff \(error)")
+                    print("Error inserting command \(error)")
                 }
             }
 

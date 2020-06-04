@@ -148,12 +148,12 @@ extension PersonProvider {
         if mergeResult.totalChanges > 0 {
             
             // Apply the changes
-            mergeResult.insertedObjects.forEach { identifier, object in
-                insertPerson(identifier: identifier, properties: object.properties)
+            mergeResult.insertedObjects.forEach { identifier, person in
+                insert(person: person)
             }
 
-            mergeResult.updatedObjects.forEach { identifier, object in
-                updatePerson(identifier: identifier, properties: object.properties)
+            mergeResult.updatedObjects.forEach { identifier, person in
+                update(person: person)
             }
             
             mergeResult.removedObjects.forEach { identifier in
@@ -179,10 +179,7 @@ extension PersonProvider {
         }
     }
     
-    func insertPerson(identifier: String, properties: [String : JSONValue]) {
-        // TODO: Person from properties -- should not need to use DatabaseObject here
-        let person = Person.create(from: identifier, databaseObject: DatabaseObject(type: "person", properties: properties))
-        
+    func insert(person: Person) {
         let insert = peopleTable.insert(
             idColumn <- person.identifier,
             nameColumn <- person.name,
@@ -202,10 +199,7 @@ extension PersonProvider {
         }
     }
 
-    func updatePerson(identifier: String, properties: [String : JSONValue]) {
-        // TODO: Person from properties -- should not need to use DatabaseObject here
-        let person = Person.create(from: identifier, databaseObject: DatabaseObject(type: "person", properties: properties))
-        
+    func update(person: Person) {
         let update = peopleTable.update(
             idColumn <- person.identifier,
             nameColumn <- person.name,

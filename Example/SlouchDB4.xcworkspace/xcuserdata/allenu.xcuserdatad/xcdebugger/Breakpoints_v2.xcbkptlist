@@ -112,7 +112,7 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "155"
             endingLineNumber = "155"
-            landmarkName = "readNextDiffs(byteOffset:maxDiffs:)"
+            landmarkName = "readNextCommands(byteOffset:maxCommands:)"
             landmarkType = "7">
          </BreakpointContent>
       </BreakpointProxy>
@@ -127,9 +127,7 @@
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "160"
-            endingLineNumber = "160"
-            landmarkName = "readNextDiffs(byteOffset:maxDiffs:)"
-            landmarkType = "7">
+            endingLineNumber = "160">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -142,10 +140,8 @@
             filePath = "../SlouchDB4/Classes/Core/Journal/JournalFileReader.swift"
             startingColumnNumber = "9223372036854775807"
             endingColumnNumber = "9223372036854775807"
-            startingLineNumber = "173"
-            endingLineNumber = "173"
-            landmarkName = "readNextDiffs(byteOffset:maxDiffs:)"
-            landmarkType = "7">
+            startingLineNumber = "160"
+            endingLineNumber = "160">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy
@@ -176,8 +172,8 @@
             endingColumnNumber = "9223372036854775807"
             startingLineNumber = "192"
             endingLineNumber = "192"
-            landmarkName = "tableView(_:objectValueFor:row:)"
-            landmarkType = "7">
+            landmarkName = "ViewController"
+            landmarkType = "21">
          </BreakpointContent>
       </BreakpointProxy>
       <BreakpointProxy

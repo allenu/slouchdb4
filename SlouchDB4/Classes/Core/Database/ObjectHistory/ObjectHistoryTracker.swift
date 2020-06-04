@@ -9,34 +9,49 @@
 import Foundation
 
 public enum ObjectHistoryProcessingState {
-    case fastForward(nextDiffIndex: Int)
+    case fastForward(nextCommandIndex: Int)
     case replay
 }
 
-public protocol ObjectProvider: class {
-    func object(for identifier: String) -> DatabaseObject?
+public enum PlaybackPosition {
+    case start
+    case currentPosition
 }
 
-typealias ObjectHistory =  [ObjectDiff]
+public protocol CommandExecutor: class {
+    func beginCommandExecution()
+    func execute(commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool
+    func endCommandExecution()
+}
 
-public class ObjectHistoryState {
-    public var processingState: ObjectHistoryProcessingState
-    public var diffs: [ObjectDiff]
+public struct Command: Codable {
+    // Object to modify
+    public let objectIdentifier: String
+    public let commandIdentifier: String
+    public let timestamp: Date
     
-    public init(processingState: ObjectHistoryProcessingState,
-         diffs: [ObjectDiff] = []) {
-        self.processingState = processingState
-        self.diffs = diffs
+    // Opaque data that the client encodes/decodes as it cares to
+    public let operation: Data
+    
+    public init(objectIdentifier: String,
+                commandIdentifier: String,
+                timestamp: Date,
+                operation: Data) {
+        self.objectIdentifier = objectIdentifier
+        self.commandIdentifier = commandIdentifier
+        self.timestamp = timestamp
+        self.operation = operation
     }
 }
 
-public struct MergeResult {
-    public let insertedObjects: [String : DatabaseObject]
-    public let removedObjects: [String]
-    public let updatedObjects: [String : DatabaseObject]
+public class ObjectHistoryState {
+    public var processingState: ObjectHistoryProcessingState
+    public var commands: [Command]
     
-    public var totalChanges: Int {
-        return insertedObjects.count + removedObjects.count + updatedObjects.count
+    public init(processingState: ObjectHistoryProcessingState,
+         commands: [Command] = []) {
+        self.processingState = processingState
+        self.commands = commands
     }
 }
 
@@ -51,78 +66,63 @@ public class ObjectHistoryTracker {
         objectHistoryStore.save(to: folderUrl)
     }
     
-    // This queues up the diffs provided and updates the histories of each object.
-    public func enqueue(diffs: [ObjectDiff]) {
-        diffs.forEach { diff in
-            if let objectHistoryState = objectHistoryStore.objectHistoryState(for: diff.identifier) {
-                let originalDiffCount = objectHistoryState.diffs.count
+    // This queues up the commands provided and updates the histories of each object.
+    public func enqueue(commands: [Command]) {
+        commands.forEach { command in
+            if let objectHistoryState = objectHistoryStore.objectHistoryState(for: command.objectIdentifier) {
+                let originalCommandCount = objectHistoryState.commands.count
 
-                if let lastDiff = objectHistoryState.diffs.last {
-                    if diff.timestamp > lastDiff.timestamp {
-                        // See if this diff's timestamp is newer than the last one, we can
+                if let lastCommand = objectHistoryState.commands.last {
+                    if command.timestamp > lastCommand.timestamp {
+                        // See if this command's timestamp is newer than the last one, we can
                         // just append.
                         // processingState is whatever it was
-                        objectHistoryState.diffs.append(diff)
-                    } else if diff.timestamp == lastDiff.timestamp {
-                        // Timestamps are equal, so see if it's the same diff we are inserting
+                        objectHistoryState.commands.append(command)
+                    } else if command.timestamp == lastCommand.timestamp {
+                        // Timestamps are equal, so see if it's the same command we are inserting
                         // again...
-                        if diff == lastDiff {
-                            // Same diff. We already know about it, so do nothing.
+                        if command.commandIdentifier == lastCommand.commandIdentifier {
+                            // Same command. We already know about it, so do nothing.
                         } else {
-                            // New diff! Append it. processingState is whatever it was
-                            objectHistoryState.diffs.append(diff)
+                            // New command! Append it. processingState is whatever it was
+                            objectHistoryState.commands.append(command)
                         }
                     } else {
-                        // This diff may change history. Find where to insert it.
-                        let firstDiffNewerIndex = objectHistoryState.diffs.firstIndex(where: { $0.timestamp >= diff.timestamp })!
+                        // This command may change history. Find where to insert it.
+                        let firstCommandNewerIndex = objectHistoryState.commands.firstIndex(where: { $0.timestamp >= command.timestamp })!
                         
-                        // See if this is the same diff as the one we're inserting
-                        let firstDiffNewer = objectHistoryState.diffs[firstDiffNewerIndex]
-                        if firstDiffNewer == diff {
+                        // See if this is the same command as the one we're inserting
+                        let firstCommandNewer = objectHistoryState.commands[firstCommandNewerIndex]
+                        if firstCommandNewer.commandIdentifier == command.commandIdentifier {
                             // Already know about it, so don't insert.
                         } else {
-                            // Insert diff before that one
-                            objectHistoryState.diffs.insert(diff, at: firstDiffNewerIndex)
+                            // Insert command before that one
+                            objectHistoryState.commands.insert(command, at: firstCommandNewerIndex)
                             
                             // Rewriting history
                             objectHistoryState.processingState = .replay
                         }
                     }
                 } else {
-                    // Strange, there are no diffs. Handle it gracefully.
+                    // Strange, there are no commands. Handle it gracefully.
                     assertionFailure("Unexpected state")
-                    objectHistoryState.diffs.append(diff)
+                    objectHistoryState.commands.append(command)
                     objectHistoryState.processingState = .replay
                 }
                 
-                // See if we ended up updating the diffs. If so, record that it changed.
-                if objectHistoryState.diffs.count != originalDiffCount {
-                    
-                    // If the first diff is an insert, then this is a valid history that we can
-                    // act on, so insert into pending updates
-                    if let firstDiff = objectHistoryState.diffs.first,
-                        case ObjectDiff.insert = firstDiff {
-                        objectHistoryStore.insertPendingUpdate(for: diff.identifier)
-                    } else {
-                        // First diff is not an insert, so do not consider as pending update until then.
-                    }
+                // See if we ended up updating the commands. If so, record that it changed.
+                if objectHistoryState.commands.count != originalCommandCount {
+                    objectHistoryStore.insertPendingUpdate(for: command.objectIdentifier)
                     
                     // Update it in the datastore
-                    objectHistoryStore.update(objectHistoryState: objectHistoryState, for: diff.identifier)
+                    objectHistoryStore.update(objectHistoryState: objectHistoryState, for: command.objectIdentifier)
                 }
             } else {
                 // Doesn't exist yet, so create it
+                let objectHistoryState = ObjectHistoryState(processingState: .replay, commands: [command])
+                objectHistoryStore.update(objectHistoryState: objectHistoryState, for: command.objectIdentifier)
                 
-                let objectHistoryState = ObjectHistoryState(processingState: .replay, diffs: [diff])
-                objectHistoryStore.update(objectHistoryState: objectHistoryState, for: diff.identifier)
-                
-                if case ObjectDiff.insert = diff {
-                    objectHistoryStore.insertPendingUpdate(for: diff.identifier)
-                } else {
-                    // If this is NOT an insert operation and it's the first one, do not treat this as
-                    // a pending update since we can't act on an object that doesn't have an insert
-                    // instruction.
-                }
+                objectHistoryStore.insertPendingUpdate(for: command.objectIdentifier)
             }
         }
     }
@@ -130,67 +130,49 @@ public class ObjectHistoryTracker {
     // TODO: Make it so that process() can do a maximum of N updates at a time (to reduce
     // memory consumption). We can keep calling it until MergeResult is empty.
     
-    // Go through pending diffs and process the changes they would generate.
+    // Go through pending commands and process the changes they would generate.
     // This mutates our internal state to consider those changes applied.
-    func process(objectProvider: ObjectProvider) -> MergeResult {
-        var insertedObjects: [String : DatabaseObject] = [:]
-        var removedObjects: [String] = []
-        var updatedObjects: [String : DatabaseObject] = [:]
-        
-        // TODO: Take the first N items in pendingUpdates and only process those
-        // so that our list of inserted/removed/updated is a small subset (if needed).
-        
+    
+    func process(commandExecutor: CommandExecutor) {
         let pendingUpdates = objectHistoryStore.pendingUpdates()
+        
+        commandExecutor.beginCommandExecution()
         
         pendingUpdates.forEach { identifier in
             if let objectHistoryState = objectHistoryStore.objectHistoryState(for: identifier) {
                 switch objectHistoryState.processingState {
-                case .fastForward(let nextDiffIndex):
-                    if let object = objectProvider.object(for: identifier) {
-                        let justNewDiffs = Array(objectHistoryState.diffs.dropFirst(nextDiffIndex))
-                        if let updatedObject = UpdatedDatabaseObject(from: justNewDiffs, originalObject: object) {
-                            updatedObjects[identifier] = updatedObject
-                        } else {
-                            print("WARNING: \(identifier) removed during ffwd")
-                            removedObjects.append(identifier)
-                        }
-                        assert(objectHistoryState.diffs.count > 0)
-                        objectHistoryState.processingState = .fastForward(nextDiffIndex: objectHistoryState.diffs.count)
+                case .fastForward(let nextCommandIndex):
+                    
+                    let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
+                    assert(justNewCommands.count > 0)
+                    let success = commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition)
+                    
+                    if success {
+                        objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+
+                        objectHistoryStore.removePendingUpdate(for: identifier)
                     } else {
-                        //assertionFailure("Object not found in cache")
-                        print("WARNING: \(identifier) Encountered an update on an object that has not yet been inserted. Will reset to .replay and hope the insert happens first.")
-                        objectHistoryState.processingState = .replay
+                        // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                        // that will make it complete later
                     }
                     
                 case .replay:
-                    if let oldObject = objectProvider.object(for: identifier) {
-                        // Old object exists, so we'll need to replace it (or remove it)
-                        _ = oldObject
-                        if let newObject = CreateDatabaseObject(from: objectHistoryState.diffs) {
-                            updatedObjects[identifier] = newObject
-                        } else {
-                            print("WARNING: \(identifier) removed during replay")
-                            removedObjects.append(identifier)
-                        }
+                    assert(objectHistoryState.commands.count > 0)
+                    let success = commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .currentPosition)
+                    
+                    if success {
+                        objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                        objectHistoryStore.removePendingUpdate(for: identifier)
                     } else {
-                        if let newObject = CreateDatabaseObject(from: objectHistoryState.diffs) {
-                            insertedObjects[identifier] = newObject
-                        } else {
-                            // Object got deleted in the end
-                        }
+                        // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                        // that will make it complete later
                     }
-                    assert(objectHistoryState.diffs.count > 0)
-                    objectHistoryState.processingState = .fastForward(nextDiffIndex: objectHistoryState.diffs.count)
                 }
             } else {
                 assertionFailure()
             }
-            
-            objectHistoryStore.removePendingUpdate(for: identifier)
         }
         
-        return MergeResult(insertedObjects: insertedObjects,
-                           removedObjects: removedObjects,
-                           updatedObjects: updatedObjects)
+        commandExecutor.endCommandExecution()
     }
 }

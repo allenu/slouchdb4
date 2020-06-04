@@ -8,20 +8,6 @@
 
 import Foundation
 
-public struct ObjectDiffJsonRepresentation: Codable {
-    enum ObjectDiffType: String, Codable {
-        case insert
-        case remove
-        case update
-    }
-    
-    let diffType: ObjectDiffType
-    let timestamp: Date
-    let identifier: String
-    let type: String?
-    let properties: [String : JSONValue]?
-}
-
 public class JournalFileWriter: JournalWritable {
     let fileHandle: FileHandle
     public var byteOffset: UInt64
@@ -86,11 +72,11 @@ public class JournalFileWriter: JournalWritable {
 //        }
     }
     
-    public func append(diffs: [ObjectDiff]) {
-        // Each diff goes on its own line, separated by newlines
-        diffs.forEach { diff in
-            let diffData = try! encoder.encode(diff.jsonRepresentation)
-            fileHandle.write(diffData)
+    public func append(commands: [Command]) {
+        // Each command goes on its own line, separated by newlines
+        commands.forEach { command in
+            let commandData = try! encoder.encode(command)
+            fileHandle.write(commandData)
             
             let newline = "\n"
             let newlineData = newline.data(using: .utf8)!

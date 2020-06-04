@@ -11,7 +11,7 @@ import Foundation
 public protocol JournalFileManaging {
     func save(to rootFolderUrl: URL)
     
-    func writeLocal(diffs: [ObjectDiff], to identifier: String)
+    func writeLocal(commands: [Command], to identifier: String)
     
     // Get the url for a local journal file (searches only in /local/)
     func localFileUrl(for identifier: String) -> URL?
@@ -20,7 +20,7 @@ public protocol JournalFileManaging {
     // call completion when done copying.
     func replaceRemoteJournalFile(identifier: String, with url: URL, completion: @escaping () -> Void)
     
-    func readNextDiffs(from identifier: String, byteOffset: UInt64, maxDiffs: Int) -> JournalReadResult
+    func readNextCommands(from identifier: String, byteOffset: UInt64, maxCommands: Int) -> JournalReadResult
 }
 
 public struct JournalManagerStoredState: Codable {
@@ -55,7 +55,7 @@ public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [St
 }
 
 public class JournalManager: JournalManaging {
-    let maxDiffs: Int = 100
+    let maxCommands: Int = 100
     
     let remoteFileStore: RemoteFileStoring
     var journalFileManager: JournalFileManaging
@@ -135,10 +135,10 @@ public class JournalManager: JournalManaging {
         
     }
     
-    public func addToLocalJournal(diff: ObjectDiff) {
+    public func addToLocalJournal(command: Command) {
         // Clear last version pushed to indicate that we need to re-push
         lastLocalVersionPushed = "version-is-dirty"
-        journalFileManager.writeLocal(diffs: [diff], to: localIdentifier)
+        journalFileManager.writeLocal(commands: [command], to: localIdentifier)
     }
     
     func syncFiles(completion: @escaping (SyncFilesResponse) -> Void) {
@@ -275,22 +275,22 @@ public class JournalManager: JournalManaging {
         }
     }
     
-    // The job of this function is to grab as many diffs (at most maxDiffs) from the journals that have pending
-    // diffs that we have not yet processed.
+    // The job of this function is to grab as many commands (at most maxCommands) from the journals that have pending
+    // commands that we have not yet processed.
     //
     // We keep track of a byte offset within a journal and if the journal gets updated with new data, we can
     // try to fetch from it and update the byte offset if we do get more data from it.
     //
-    // We go through each journal in our list, one at a time, grabbing diffs. If we exhaust all the diffs in
-    // a single journal and still have room for more diffs, we go onto the next journal in the list (arbitrarily
-    // ordered by the journalByteOffsets dictionary) and try to get more diffs from that.
+    // We go through each journal in our list, one at a time, grabbing commands. If we exhaust all the commands in
+    // a single journal and still have room for more commands, we go onto the next journal in the list (arbitrarily
+    // ordered by the journalByteOffsets dictionary) and try to get more commands from that.
     //
-    // If we find there are no more diffs outstanding, then we return before filling up the diffs with max content.
-    func fetchLatestDiffsWithoutSync(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
-        // Go through journals getting up to maxDiffs until there are no more changes
-        // or we reach maxDiffs.
+    // If we find there are no more commands outstanding, then we return before filling up the commands with max content.
+    func fetchLatestCommandsWithoutSync(completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
+        // Go through journals getting up to maxCommands until there are no more changes
+        // or we reach maxCommands.
         
-        var diffs: [ObjectDiff] = []
+        var commands: [Command] = []
         var journalsHaveNoMoreChanges = false
         var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
         
@@ -305,25 +305,25 @@ public class JournalManager: JournalManaging {
                 // the change.
                 let updatedByteOffset = journalByteOffsetsToUpdateAfterMerge[identifier] ?? byteOffset
                 
-                if diffs.count >= maxDiffs {
-                    // Do nothing. We have enough diffs.
+                if commands.count >= maxCommands {
+                    // Do nothing. We have enough commands.
                 } else {
                     // Try to get changes from this journal, a max of N
-                    let maxDiffsAttemptToFetch = maxDiffs - diffs.count
+                    let maxCommandsAttemptToFetch = maxCommands - commands.count
                     
-                    let readResult = self.journalFileManager.readNextDiffs(from: identifier,
+                    let readResult = self.journalFileManager.readNextCommands(from: identifier,
                                                                            byteOffset: updatedByteOffset,
-                                                                           maxDiffs: maxDiffsAttemptToFetch)
+                                                                           maxCommands: maxCommandsAttemptToFetch)
                     
-                    print("readNextDiffs from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.diffs.count) diffs  \(readResult.byteOffset) offset")
+                    print("readNextCommands from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.commands.count) commands  \(readResult.byteOffset) offset")
                     
-                    if readResult.diffs.count > 0 {
-                        diffs.append(contentsOf: readResult.diffs)
+                    if readResult.commands.count > 0 {
+                        commands.append(contentsOf: readResult.commands)
                         loadedJournalChanges = true
                         
                         journalByteOffsetsToUpdateAfterMerge[identifier] = readResult.byteOffset
                     } else {
-                        // No diffs to get ... keep going
+                        // No commands to get ... keep going
                     }
                 }
             }
@@ -333,15 +333,15 @@ public class JournalManager: JournalManaging {
         
         DispatchQueue.main.async {
             let successType: FetchJournalSuccessType
-            if diffs.count == self.maxDiffs {
+            if commands.count == self.maxCommands {
                 // Assume there may be more results
-                successType = .partialResults(diffs: diffs, percent: 0.25)
+                successType = .partialResults(commands: commands, percent: 0.25)
             } else {
-                successType = .results(diffs: diffs)
+                successType = .results(commands: commands)
             }
 
-            // Client calls this when it's done processing the successful list of diffs
-            let callbackWhenDiffsMerged: CallbackWhenDiffsMerged = { [weak self] success in
+            // Client calls this when it's done processing the successful list of commands
+            let callbackWhenCommandsMerged: CallbackWhenCommandsMerged = { [weak self] success in
                 guard let strongSelf = self else { return }
                 
                 if success {
@@ -354,20 +354,20 @@ public class JournalManager: JournalManaging {
                 }
             }
             
-            completion(FetchJournalDiffsResponse.success(type: successType), callbackWhenDiffsMerged)
+            completion(FetchJournalCommandsResponse.success(type: successType), callbackWhenCommandsMerged)
         }
     }
     
-    public func fetchLatestDiffs(completion: @escaping (FetchJournalDiffsResponse, CallbackWhenDiffsMerged?) -> Void) {
+    public func fetchLatestCommands(completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
         if shouldSync {
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
                 switch syncFilesResponse {
                 case .success(let updatedFiles):
-                    // TODO: See if really care about the updatedFiles when we sync and try to do a fetchLatestDiffsWithoutSync()
+                    // TODO: See if really care about the updatedFiles when we sync and try to do a fetchLatestCommandsWithoutSync()
                     _ = updatedFiles
-                    strongSelf.fetchLatestDiffsWithoutSync(completion: completion)
+                    strongSelf.fetchLatestCommandsWithoutSync(completion: completion)
                     
                 case .failure:
                     DispatchQueue.main.async {
@@ -376,7 +376,7 @@ public class JournalManager: JournalManaging {
                 }
             })
         } else {
-            fetchLatestDiffsWithoutSync(completion: completion)
+            fetchLatestCommandsWithoutSync(completion: completion)
         }
     }
 }
