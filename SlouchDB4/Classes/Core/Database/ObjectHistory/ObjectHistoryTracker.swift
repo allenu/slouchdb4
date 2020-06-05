@@ -158,7 +158,7 @@ public class ObjectHistoryTracker {
                     
                 case .replay:
                     assert(objectHistoryState.commands.count > 0)
-                    let success = commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .currentPosition)
+                    let success = commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start)
                     
                     if success {
                         objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)

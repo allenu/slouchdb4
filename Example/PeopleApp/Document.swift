@@ -110,10 +110,10 @@ class Document: NSDocument {
     //                if let objectStore = InMemObjectStore.create(from: url) {
     //                    self.objectStore = objectStore
     //                }
-            } else {
-                // Missing People database
-                throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
-            }
+                } else {
+                    // Missing People database
+                    throw NSError(domain: "com.ussherpress", code: 1, userInfo: [:])
+                }
             
 
             } else {
@@ -189,11 +189,6 @@ class Document: NSDocument {
 }
 
 extension Document: ChangeTrackerDelegate {
-    func changeTracker(_ changeTracker: ChangeTracker, didRequestMerge mergeResult: MergeResult) {
-//        objectStore.apply(mergeResult: mergeResult)
-        personProvider.apply(mergeResult: mergeResult)
-    }
-
     func beginCommandExecution(_ changeTracker: ChangeTracker) {
         bulkRemovedObjects = []
         bulkInsertedObjects = [:]
@@ -203,6 +198,22 @@ extension Document: ChangeTrackerDelegate {
     func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool {
 
         let decoder = JSONDecoder()
+        
+        var basePerson: Person?
+        switch playbackPosition {
+        case .start:
+            // This means we must construct a new object at some point
+            basePerson = nil
+            
+        case .currentPosition:
+            // This means we MUST have an object already...
+            let existingPerson = personProvider.person(for: identifier)
+            if existingPerson == nil {
+                // Problem! Cannot update a person that doesn't exist yet
+                return false
+            }
+            basePerson = existingPerson
+        }
 
         // TODO: Process each command before doing bulk insert/remove/etc
         // i.e. if got "insert"
@@ -212,25 +223,64 @@ extension Document: ChangeTrackerDelegate {
         // if "remove"
         // - pendingDelete = true
         // when get to end of commands, then go through each item
+        
+        var wasRemoved = false
+        var wasInserted = false
+        
         commands.forEach { command in
             if let operation = try? decoder.decode(PersonDbOperation.self, from: command.operation) {
                 Swift.print("found operation: \(operation)")
                 
                 switch operation.type {
                 case "insert":
-                    if let data = operation.data,
-                        let person = try? decoder.decode(Person.self, from: data) {
-                        bulkInsertedObjects[identifier] = person
+                    if basePerson != nil {
+                        // Bad data! Why are we inserting an existing entry?
+                        
+                        assertionFailure()
+                    } else {
+                        if let data = operation.data,
+                            let person = try? decoder.decode(Person.self, from: data) {
+                            basePerson = person
+                            wasInserted = true
+                        } else {
+                            assertionFailure()
+                        }
                     }
                     
                 case "remove":
-                    bulkRemovedObjects.append(identifier)
+                    wasRemoved = true
+                    basePerson = nil
+                    
+                case "update":
+                    if let person = basePerson {
+                        // TODO:
+                        // This depends on how we encode "update person"
+                        
+                    } else {
+                        // Must mean we have an incomplete set of commands
+                        assertionFailure()
+                    }
                     
                 default:
-                    break
+                    assertionFailure()
                 }
                 
             } else {
+                assertionFailure()
+            }
+        }
+        
+        if let basePerson = basePerson {
+            if wasInserted {
+                bulkInsertedObjects[identifier] = basePerson
+            } else {
+                bulkUpdatedObjects[identifier] = basePerson
+            }
+        } else {
+            if wasRemoved {
+                bulkRemovedObjects.append(identifier)
+            } else {
+                // Unknown
                 assertionFailure()
             }
         }
