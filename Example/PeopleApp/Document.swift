@@ -226,24 +226,33 @@ extension Document: ChangeTrackerDelegate {
         
         var wasRemoved = false
         var wasInserted = false
+        var encounteredError = false
         
         commands.forEach { command in
+            guard !encounteredError else { return }
+            
             if let operation = try? decoder.decode(PersonDbOperation.self, from: command.operation) {
                 Swift.print("found operation: \(operation)")
                 
                 switch operation.type {
                 case "insert":
-                    if basePerson != nil {
-                        // Bad data! Why are we inserting an existing entry?
-                        
+                    if wasRemoved {
+                        // Can't insert after remove
+                        encounteredError = true
                         assertionFailure()
                     } else {
-                        if let data = operation.data,
-                            let person = try? decoder.decode(Person.self, from: data) {
-                            basePerson = person
-                            wasInserted = true
-                        } else {
+                        if basePerson != nil {
+                            // Bad data! Why are we inserting an existing entry?
+                            
                             assertionFailure()
+                        } else {
+                            if let data = operation.data,
+                                let person = try? decoder.decode(Person.self, from: data) {
+                                basePerson = person
+                                wasInserted = true
+                            } else {
+                                assertionFailure()
+                            }
                         }
                     }
                     
@@ -252,40 +261,51 @@ extension Document: ChangeTrackerDelegate {
                     basePerson = nil
                     
                 case "update":
-                    if let person = basePerson {
+                    if wasRemoved {
+                        // Can't update after remove
+                        encounteredError = true
+                        assertionFailure()
+                    } else if let person = basePerson {
                         // TODO:
                         // This depends on how we encode "update person"
                         
                     } else {
                         // Must mean we have an incomplete set of commands
+                        encounteredError = true
                         assertionFailure()
                     }
                     
                 default:
+                    // Don't understand command
+                    encounteredError = true
                     assertionFailure()
                 }
                 
             } else {
+                // Don't understand command
+                encounteredError = true
                 assertionFailure()
             }
         }
         
-        if let basePerson = basePerson {
-            if wasInserted {
-                bulkInsertedObjects[identifier] = basePerson
+        if !encounteredError {
+            if let basePerson = basePerson {
+                if wasInserted {
+                    bulkInsertedObjects[identifier] = basePerson
+                } else {
+                    bulkUpdatedObjects[identifier] = basePerson
+                }
             } else {
-                bulkUpdatedObjects[identifier] = basePerson
-            }
-        } else {
-            if wasRemoved {
-                bulkRemovedObjects.append(identifier)
-            } else {
-                // Unknown
-                assertionFailure()
+                if wasRemoved {
+                    bulkRemovedObjects.append(identifier)
+                } else {
+                    // Unknown
+                    assertionFailure()
+                }
             }
         }
         
-        return true
+        return !encounteredError
     }
     
     func endCommandExecution(_ changeTracker: ChangeTracker) {

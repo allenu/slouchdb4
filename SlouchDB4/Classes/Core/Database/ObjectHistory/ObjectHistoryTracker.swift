@@ -149,6 +149,7 @@ public class ObjectHistoryTracker {
                     
                     if success {
                         objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                        objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
 
                         objectHistoryStore.removePendingUpdate(for: identifier)
                     } else {
@@ -162,6 +163,7 @@ public class ObjectHistoryTracker {
                     
                     if success {
                         objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                        objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
                         objectHistoryStore.removePendingUpdate(for: identifier)
                     } else {
                         // Incomplete set of commands, so keep in the store and hope that we sync newer info
@@ -169,7 +171,7 @@ public class ObjectHistoryTracker {
                     }
                 }
             } else {
-                assertionFailure()
+                Swift.print("Could not find object history state for object \(identifier)")
             }
         }
         

@@ -90,6 +90,16 @@ public class ChangeTracker {
         objectHistoryTracker.process(commandExecutor: self)
     }
     
+    // Reset the history for a given object
+    public func manuallyResetHistory(for identifier: String, commands: [Command]) {
+        commands.forEach { command in
+            journalManager.addToLocalJournal(command: command)
+        }
+        let objectHistoryState = ObjectHistoryState(processingState: .fastForward(nextCommandIndex: commands.count),
+                                                    commands: commands)
+        objectHistoryTracker.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
+    }
+    
     // Local database changes
     public func append(command: Command) {
         journalManager.addToLocalJournal(command: command)
