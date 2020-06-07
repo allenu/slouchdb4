@@ -92,7 +92,7 @@ public class JournalManager: JournalManaging {
         self.remoteFileVersion = storedState.remoteFileVersion
     }
     
-    public static func create(from folderUrl: URL, with remoteFileStore: RemoteFileStoring) -> JournalManager? {
+    public static func create(from folderUrl: URL, useTempWorkingFolder: Bool, with remoteFileStore: RemoteFileStoring) -> JournalManager? {
         let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
 
         let decoder = JSONDecoder()
@@ -101,10 +101,18 @@ public class JournalManager: JournalManaging {
         if let data = try? Data(contentsOf: fileUrl),
             let storedState = try? decoder.decode(JournalManagerStoredState.self, from: data) {
             
-            let directory = NSTemporaryDirectory()
-            let subpath = UUID().uuidString
-            let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
-            let journalManager = JournalManager(journalFileManager: JournalFileManager(workingFolderUrl: tempUrl, storageFolderUrl:  folderUrl), remoteFileStore: remoteFileStore, storedState: storedState)
+            let workingFolderUrl: URL
+            
+            if useTempWorkingFolder {
+                let directory = NSTemporaryDirectory()
+                let subpath = UUID().uuidString
+                let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
+                workingFolderUrl = tempUrl
+            } else {
+                workingFolderUrl = folderUrl
+            }
+            let storageFolderUrl = useTempWorkingFolder ? folderUrl : nil
+            let journalManager = JournalManager(journalFileManager: JournalFileManager(workingFolderUrl: workingFolderUrl, storageFolderUrl: storageFolderUrl), remoteFileStore: remoteFileStore, storedState: storedState)
             
             return journalManager
         }
@@ -150,9 +158,13 @@ public class JournalManager: JournalManaging {
                                                     localFileVersions: strongSelf.remoteFileVersion,
                                                     remoteFileVersions: fetchedVersions)
             
+//            print("syncFiles fetching \(filesToFetch)")
+            
             if filesToFetch.count > 0 {
                 strongSelf.remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
                     guard let strongSelf = self else { return }
+                    
+//                    print("fetched result: \(response)")
                     
                     switch response {
                     case .success(let fileAndVersion):
@@ -176,7 +188,7 @@ public class JournalManager: JournalManaging {
                                     .journalFileManager
                                     .replaceRemoteJournalFile(identifier: fileIdentifier, with: remoteFileUrl, completion: {
                                         
-                                        print("replaced file \(fileIdentifier) with \(remoteFileUrl)")
+//                                        print("replaced file \(fileIdentifier) with \(remoteFileUrl)")
 
                                         DispatchQueue.main.async {
                                             // Add journal readers for each journal that we're missing
@@ -224,6 +236,8 @@ public class JournalManager: JournalManaging {
         DispatchQueue.global(qos: .background).async {
             self.remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
                 guard let strongSelf = self else { return }
+                
+//                print("fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
                 
                 switch fetchedRemoteFileVersionsResponse {
                 case .success(let fetchedVersions):
@@ -315,7 +329,7 @@ public class JournalManager: JournalManaging {
                                                                            byteOffset: updatedByteOffset,
                                                                            maxCommands: maxCommandsAttemptToFetch)
                     
-                    print("readNextCommands from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.commands.count) commands  \(readResult.byteOffset) offset")
+//                    print("readNextCommands from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.commands.count) commands  \(readResult.byteOffset) offset")
                     
                     if readResult.commands.count > 0 {
                         commands.append(contentsOf: readResult.commands)

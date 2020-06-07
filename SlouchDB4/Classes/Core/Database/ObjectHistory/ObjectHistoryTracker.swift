@@ -34,8 +34,8 @@ public struct Command: Codable {
     public let operation: Data
     
     public init(objectIdentifier: String,
-                commandIdentifier: String,
-                timestamp: Date,
+                commandIdentifier: String = UUID().uuidString,
+                timestamp: Date = Date(),
                 operation: Data) {
         self.objectIdentifier = objectIdentifier
         self.commandIdentifier = commandIdentifier
@@ -104,8 +104,7 @@ public class ObjectHistoryTracker {
                         }
                     }
                 } else {
-                    // Strange, there are no commands. Handle it gracefully.
-                    assertionFailure("Unexpected state")
+                    // Strange, there are no commands yet. Handle it gracefully.
                     objectHistoryState.commands.append(command)
                     objectHistoryState.processingState = .replay
                 }
@@ -144,17 +143,18 @@ public class ObjectHistoryTracker {
                 case .fastForward(let nextCommandIndex):
                     
                     let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
-                    assert(justNewCommands.count > 0)
-                    let success = commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition)
-                    
-                    if success {
-                        objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
-                        objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
+                    if justNewCommands.count > 0 {
+                        let success = commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition)
+                        
+                        if success {
+                            objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                            objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
 
-                        objectHistoryStore.removePendingUpdate(for: identifier)
-                    } else {
-                        // Incomplete set of commands, so keep in the store and hope that we sync newer info
-                        // that will make it complete later
+                            objectHistoryStore.removePendingUpdate(for: identifier)
+                        } else {
+                            // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                            // that will make it complete later
+                        }
                     }
                     
                 case .replay:

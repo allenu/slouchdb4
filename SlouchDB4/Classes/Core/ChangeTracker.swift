@@ -63,6 +63,8 @@ public class ChangeTracker {
         case failure
     }
     
+    let queue = DispatchQueue(label: "ChangeTracker.Data-\(UUID().uuidString)", attributes: [])
+    
     let journalManager: JournalManaging
     let objectHistoryTracker: ObjectHistoryTracker
     
@@ -78,81 +80,110 @@ public class ChangeTracker {
     }
     
     public func save(to folderUrl: URL) {
-        objectHistoryTracker.save(to: folderUrl)
-        journalManager.save(to: folderUrl)
+        queue.async {
+            self.objectHistoryTracker.save(to: folderUrl)
+            self.journalManager.save(to: folderUrl)
+        }
     }
     
     func enqueue(commands: [Command]) {
-        objectHistoryTracker.enqueue(commands: commands)
+        queue.async {
+            self.objectHistoryTracker.enqueue(commands: commands)
+        }
     }
     
     func processEnqueued() {
-        objectHistoryTracker.process(commandExecutor: self)
+        queue.async {
+            self.objectHistoryTracker.process(commandExecutor: self)
+        }
     }
     
     // Reset the history for a given object
     public func manuallyResetHistory(for identifier: String, commands: [Command]) {
-        commands.forEach { command in
-            journalManager.addToLocalJournal(command: command)
+        queue.async {
+            commands.forEach { command in
+                self.journalManager.addToLocalJournal(command: command)
+            }
+            let objectHistoryState = ObjectHistoryState(processingState: .fastForward(nextCommandIndex: commands.count),
+                                                        commands: commands)
+            self.objectHistoryTracker.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
         }
-        let objectHistoryState = ObjectHistoryState(processingState: .fastForward(nextCommandIndex: commands.count),
-                                                    commands: commands)
-        objectHistoryTracker.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
     }
     
     // Local database changes
     public func append(command: Command) {
-        journalManager.addToLocalJournal(command: command)
-        enqueue(commands: [command])
-        processEnqueued()
+        queue.async {
+            self.journalManager.addToLocalJournal(command: command)
+            self.enqueue(commands: [command])
+            self.processEnqueued()
+        }
+    }
+    
+    public func append(contentsOf commands: [Command]) {
+        queue.async {
+            commands.forEach { self.journalManager.addToLocalJournal(command: $0) }
+            self.enqueue(commands: commands)
+            self.processEnqueued()
+        }
     }
 
     public func sync(completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
-        journalManager.fetchLatestCommands(completion: { [weak self] response, callbackWhenCommandsMerged in
-            guard let strongSelf = self else { return }
-            
-            switch response {
-            case .success(let type):
-                // TODO: Do processing in background thread
+        queue.async {
+            self.journalManager.fetchLatestCommands(completion: { [weak self] response, callbackWhenCommandsMerged in
+                guard let strongSelf = self else { return }
                 
-                let processCommands: ([Command]) -> Void = { commands in
-                    strongSelf.enqueue(commands: commands)
-                }
-                
-                switch type {
-                case .partialResults(let commands, let percent):
-                    processCommands(commands)
-                    DispatchQueue.main.async {
-
-                        // Process the partial results and let JournalManager that we've
-                        // saved them.
-                        strongSelf.processEnqueued()
-                        callbackWhenCommandsMerged?(true)
-
-                        // Tell client of ChangeTracker that we have partial results ready.
-                        partialResults(percent)
-
-                        // Still have more results, so run sync() again
-                        strongSelf.sync(completion: completion, partialResults: partialResults)
+                switch response {
+                case .success(let type):
+                    // TODO: Do processing in background thread
+                    
+                    let processCommands: ([Command]) -> Void = { commands in
+                        strongSelf.enqueue(commands: commands)
                     }
                     
-                case .results(let commands):
-                    processCommands(commands)
-                    DispatchQueue.main.async {
-                        strongSelf.processEnqueued()
-                        callbackWhenCommandsMerged?(true)
+                    switch type {
+                    case .partialResults(let commands, let percent):
+                        processCommands(commands)
+                        strongSelf.queue.async {
+                            // Process the partial results and let JournalManager that we've
+                            // saved them.
+                            strongSelf.processEnqueued()
+                            
+                            // Must call this async after processEnqueued since processEnqueued is put
+                            // in queue async and we need it to finish first.
+                            strongSelf.queue.async {
+                                callbackWhenCommandsMerged?(true)
+
+                                // Tell client of ChangeTracker that we have partial results ready.
+                                partialResults(percent)
+
+                                // Still have more results, so run sync() again
+                                strongSelf.sync(completion: completion, partialResults: partialResults)
+                            }
+                        }
                         
-                        completion(.success)
+                    case .results(let commands):
+                        processCommands(commands)
+                        strongSelf.queue.async {
+                            strongSelf.processEnqueued()
+                            
+                            // Must call this async after processEnqueued since processEnqueued is put
+                            // in queue async and we need it to finish first.
+                            strongSelf.queue.async {
+                                callbackWhenCommandsMerged?(true)
+                                
+                                completion(.success)
+                            }
+                        }
+                    }
+
+                case .failure:
+                    strongSelf.queue.async {
+                        callbackWhenCommandsMerged?(false)
+                        completion(.failure)
                     }
                 }
-
-            case .failure:
-                DispatchQueue.main.async {
-                    callbackWhenCommandsMerged?(false)
-                    completion(.failure)
-                }
-            }
-        })
+            })
+        }
     }
 }
 

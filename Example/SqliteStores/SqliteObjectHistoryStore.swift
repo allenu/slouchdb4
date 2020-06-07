@@ -110,9 +110,8 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
         
         do {
             let rowid = try connection.run(insert)
-            print("inserted row \(rowid)")
         } catch {
-            print("Failed to insert update with identifier \(identifier) -- may already exist? error: \(error)")
+            // print("Failed to insert update with identifier \(identifier) -- may already exist? error: \(error)")
         }
     }
     
@@ -121,12 +120,12 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
         
         do {
             if try connection.run(deleteQuery.delete()) > 0 {
-                print("deleted items matching \(identifier)")
+//                print("deleted items matching \(identifier)")
             } else {
-                print("no items found")
+//                print("no items found")
             }
         } catch {
-            print("delete failed: \(error)")
+//            print("delete failed: \(error)")
         }
     }
     
@@ -136,7 +135,7 @@ class SqliteObjectHistoryStore: ObjectHistoryStoring {
             let allPendingUpdates = allPendingUpdateRows.map { $0[idColumn] }
             return allPendingUpdates
         } catch {
-            print("Couldn't get all updates")
+            print("Couldn't get all updates \(error)")
             return []
         }
     }
