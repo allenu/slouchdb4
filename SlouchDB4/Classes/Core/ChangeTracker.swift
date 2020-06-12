@@ -66,10 +66,12 @@ public class ChangeTracker {
     let journalManager: JournalManaging
     let objectHistoryTracker: ObjectHistoryTracker
     
-    var commandCompletions: [String : CompletionBlock] = [:]
     var bulkDispatchGroups: [String : DispatchGroup] = [:]
     
     var unprocessedCommands: [Command] = []
+    var unprocessedCompletions: [CompletionBlock] = []
+    
+    var currentCommandCompletions: [CompletionBlock] = []
     
     var isSyncing: Bool = false
     var isProcessing = false
@@ -85,10 +87,20 @@ public class ChangeTracker {
         self.objectHistoryTracker = ObjectHistoryTracker(objectHistoryStore: objectHistoryStore)
     }
     
-    public func save(to folderUrl: URL) {
-        queue.sync {
+    public func save(to folderUrl: URL, synchronous: Bool = false) {
+        let saveBlock = {
             self.objectHistoryTracker.save(to: folderUrl)
             self.journalManager.save(to: folderUrl)
+        }
+        
+        if synchronous {
+            queue.sync {
+                saveBlock()
+            }
+        } else {
+            queue.async {
+                saveBlock()
+            }
         }
     }
     
@@ -113,12 +125,9 @@ public class ChangeTracker {
     
     // Local database changes
     public func append(command: Command, isRemote: Bool = false, completion: CompletionBlock? = nil) {
-        print("append called for \(command.commandIdentifier) for \(command.objectIdentifier)")
         queue.async {
-            print("append HANDLING command \(command.commandIdentifier) for \(command.objectIdentifier)")
             if let completion = completion {
-                assert(self.commandCompletions[command.commandIdentifier]  == nil)
-                self.commandCompletions[command.commandIdentifier] = completion
+                self.unprocessedCompletions.append(completion)
             }
             if !isRemote {
                 self.journalManager.addToLocalJournal(command: command)
@@ -128,23 +137,27 @@ public class ChangeTracker {
         }
     }
     
-    public func append(contentsOf commands: [Command], isRemote: Bool, completion: CompletionBlock?) {
-        print("append called for \(commands)")
+    public func append(contentsOf commands: [Command], isRemote: Bool = false, completion: CompletionBlock?) {
+//        Swift.print("append(contentsOf: \(commands.count) commands")
         queue.async {
+            guard commands.count > 0 else {
+                self.queue.async {
+                    completion?()
+                }
+                return
+            }
+            
             if let completion = completion {
                 // We have a single completion for multiple commands. Let's set up a dispatch group
                 // that notifies when all commands are executed.
                 let dispatchGroup = DispatchGroup()
                 commands.forEach { command in
                     dispatchGroup.enter()
-                    Swift.print("entering group: \(command.commandIdentifier)")
                     
                     let commandCompletion = {
-                        Swift.print("leaving group: \(command.commandIdentifier)")
                         dispatchGroup.leave()
                     }
-                    assert(self.commandCompletions[command.commandIdentifier]  == nil)
-                    self.commandCompletions[command.commandIdentifier] = commandCompletion
+                    self.unprocessedCompletions.append(commandCompletion)
                 }
                 
                 let bulkIdentifier = UUID().uuidString
@@ -172,13 +185,27 @@ public class ChangeTracker {
             
             self.isProcessing = true
             
+//            print("startProcessingIfNeeded running. enqueing \(self.unprocessedCommands.count) unprocessed commands")
+            
             // Put things in object tracker and clear unprocessed queue
             self.objectHistoryTracker.enqueue(commands: self.unprocessedCommands)
+            self.currentCommandCompletions = self.unprocessedCompletions
+            
+            self.unprocessedCompletions = []
             self.unprocessedCommands = []
             
             // And then process them
             self.objectHistoryTracker.process(commandExecutor: self, completion: { [weak self] in
                 self?.queue.async {
+                    
+                    // Call completions for all commands that were just processed
+                    DispatchQueue.main.async {
+                        self?.currentCommandCompletions.forEach { individualCompletion in
+                            individualCompletion()
+                        }
+                        self?.currentCommandCompletions = []
+                    }
+                    
                     // Leave processing state, but then try processing more, if needed
                     self?.isProcessing = false
                     self?.startProcessingIfNeeded()
@@ -205,13 +232,12 @@ public class ChangeTracker {
                             partialResults(percent)
 
                             // Still have more results, so run sync() again
+                            self?.isSyncing = false
                             strongSelf.sync(completion: completion, partialResults: partialResults)
                         })
                         
                     case .results(let commands):
                         strongSelf.append(contentsOf: commands, isRemote: true, completion: {
-                            callbackWhenCommandsMerged?(true)
-                            
                             callbackWhenCommandsMerged?(true)
                             
                             self?.isSyncing = false
@@ -236,21 +262,6 @@ extension ChangeTracker: CommandExecutor {
         delegate?.changeTracker(self, requestsExecute: commands,
                                 for: identifier,
                                 startingAt: playbackPosition,
-                                completion: { success in
-                                    self.queue.async {
-                                        
-                                        // Call completions for all commands that were just processed
-                                        commands.forEach { command in
-                                            if let completion = self.commandCompletions[command.commandIdentifier] {
-                                                DispatchQueue.main.async {
-                                                    completion()
-                                                }
-                                                self.commandCompletions.removeValue(forKey: command.commandIdentifier)
-                                            }
-                                        }
-                                        
-                                        completion(success)
-                                    }
-                                })
+                                completion: completion)
     }
 }

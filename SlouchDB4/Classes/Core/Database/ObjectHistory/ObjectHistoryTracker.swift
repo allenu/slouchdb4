@@ -111,11 +111,13 @@ public class ObjectHistoryTracker {
                 
                 // See if we ended up updating the commands. If so, record that it changed.
                 if objectHistoryState.commands.count != originalCommandCount {
-                    objectHistoryStore.insertPendingUpdate(for: command.objectIdentifier)
-                    
                     // Update it in the datastore
                     objectHistoryStore.update(objectHistoryState: objectHistoryState, for: command.objectIdentifier)
                 }
+                
+                // Even if nothing changed, treat it as a processed command.
+                objectHistoryStore.insertPendingUpdate(for: command.objectIdentifier)
+                
             } else {
                 // Doesn't exist yet, so create it
                 let objectHistoryState = ObjectHistoryState(processingState: .replay, commands: [command])
@@ -138,16 +140,12 @@ public class ObjectHistoryTracker {
         DispatchQueue.global(qos: .userInitiated).async {
             let dispatchGroup = DispatchGroup()
             
-            print("ObjectHistoryTracker.process(commandExecutor:)")
-            print("processing: \(pendingUpdates)")
-                
             pendingUpdates.forEach { identifier in
                 if let objectHistoryState = self.objectHistoryStore.objectHistoryState(for: identifier) {
                     switch objectHistoryState.processingState {
                     case .fastForward(let nextCommandIndex):
                         
                         let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
-                        print("ffwd: \(justNewCommands.count)")
                         if justNewCommands.count > 0 {
                             dispatchGroup.enter()
                             commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition, completion: { success in
@@ -168,7 +166,6 @@ public class ObjectHistoryTracker {
                     case .replay:
                         assert(objectHistoryState.commands.count > 0)
                         dispatchGroup.enter()
-                        print("replay: \(objectHistoryState.commands.count)")
                         commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start, completion: { success in
                             
                             if success {

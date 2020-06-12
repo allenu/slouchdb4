@@ -74,7 +74,7 @@ class Document: NSDocument {
             try! FileManager.default.createDirectory(at: url, withIntermediateDirectories: true, attributes: nil)
         }
         
-        changeTracker.save(to: url)
+        changeTracker.save(to: url, synchronous: true)
 //        objectStore.save(to: url)
         personProvider.save(to: url)
         
