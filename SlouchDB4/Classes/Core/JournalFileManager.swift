@@ -223,6 +223,14 @@ public class JournalFileManager: JournalFileManaging {
         }
     }
     
+    public func sizeOfFile(for identifier: String) -> UInt64? {
+        if let remoteReader = cachedRemoteReader(for: identifier) {
+            return remoteReader.fileLength
+        } else {
+            return nil
+        }
+    }
+    
     public func replaceRemoteJournalFile(identifier: String, with url: URL, completion: @escaping () -> Void) {
         DispatchQueue.global(qos: .background).async {
             
@@ -242,9 +250,9 @@ public class JournalFileManager: JournalFileManaging {
         }
     }
     
-    public func readNextCommands(from identifier: String, byteOffset: UInt64, maxCommands: Int) -> JournalReadResult {
+    func cachedRemoteReader(for identifier: String) -> JournalFileReader? {
         if let remoteReader = remoteReaders[identifier] {
-            return remoteReader.readNextCommands(byteOffset: byteOffset, maxCommands: maxCommands)
+            return remoteReader
         } else {
             let workingRemotesFolder = workingFolderUrl.appendingPathComponent("remotes")
             
@@ -268,14 +276,22 @@ public class JournalFileManager: JournalFileManaging {
 
             if let fileUrl = fileUrl,
                 let remoteReader = try? JournalFileReader(url: fileUrl) {
-                
                 remoteReaders[identifier] = remoteReader
-                return remoteReader.readNextCommands(byteOffset: byteOffset, maxCommands: maxCommands)
+                return remoteReader
             } else {
                 // File does not exist in working folder. Error !
-//                assertionFailure()
-                return JournalReadResult(commands: [], byteOffset: 0)
+                return nil
             }
+        }
+    }
+    
+    public func readNextCommands(from identifier: String, byteOffset: UInt64, maxCommands: Int) -> JournalReadResult {
+        if let remoteReader = cachedRemoteReader(for: identifier) {
+            return remoteReader.readNextCommands(byteOffset: byteOffset, maxCommands: maxCommands)
+        } else {
+            // File does not exist in working folder. Error !
+//                assertionFailure()
+            return JournalReadResult(commands: [], byteOffset: 0)
         }
     }
 }

@@ -13,6 +13,8 @@ public protocol JournalFileManaging {
     
     func writeLocal(commands: [Command], to identifier: String)
     
+    func sizeOfFile(for identifier: String) -> UInt64?
+    
     // Get the url for a local journal file (searches only in /local/)
     func localFileUrl(for identifier: String) -> URL?
 
@@ -66,6 +68,10 @@ public class JournalManager: JournalManaging {
     public var localIdentifier: String
     var journalByteOffsets: [String : UInt64]
     
+    // When sync begins, record where journal byte offsets are so that we can
+    // track progress as we process commands.
+    var journalByteOffsetsAtSyncStart: [String : UInt64]?
+    
     // Key is the lastPathComponent of the file. However, the lastPathComponent of
     // a journal file is just the guid, so no to worry about file extensions.
     var remoteFileVersion: [String : String]
@@ -73,13 +79,28 @@ public class JournalManager: JournalManaging {
     // TODO: Make it possible to rotate through local identifiers
     var lastLocalVersionPushed: String
     
+    var lastSuccessfulSyncTime: Date?
     var shouldSync: Bool {
         // TODO: Logic to see if we should sync remotes
         // Some potential rules:
         // - we do have a remote setup properly
         // - we have internet access
         // - enough time has elapsed since last sync
+        
         return true
+
+        // This logic doesn't work b/c it doesn't take into account if we changed anything in the last
+        // N minutes.
+//        let enoughTimeElapsedSinceLastSync: Bool
+//        if let lastSuccessfulSyncTime = self.lastSuccessfulSyncTime {
+//            let now = Date()
+//            let minTimeBetweenSyncs: TimeInterval = 5 * 60
+//            enoughTimeElapsedSinceLastSync = now.timeIntervalSince(lastSuccessfulSyncTime) >= minTimeBetweenSyncs
+//        } else {
+//            enoughTimeElapsedSinceLastSync = true
+//        }
+//        
+//        return enoughTimeElapsedSinceLastSync
     }
 
     public init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStoring, storedState: JournalManagerStoredState) {
@@ -203,9 +224,7 @@ public class JournalManager: JournalManaging {
                             }
                             
                             // Wait for all journal replacement requests to finish before calling completion
-                            dispatchGroup.wait()
-                            
-                            DispatchQueue.main.async {
+                            dispatchGroup.notify(queue: .main) {
                                 completion(.success(updatedFiles: updatedFiles))
                             }
                         }
@@ -308,6 +327,13 @@ public class JournalManager: JournalManaging {
         var journalsHaveNoMoreChanges = false
         var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
         
+        var fileSizes: [String : UInt64] = [:]
+        journalByteOffsets.keys.forEach { identifier in
+            if let fileSize = self.journalFileManager.sizeOfFile(for: identifier) {
+                fileSizes[identifier] = fileSize
+            }
+        }
+        
         while !journalsHaveNoMoreChanges {
             // Find a journal that has changes and consume as much as possible
             
@@ -345,11 +371,32 @@ public class JournalManager: JournalManaging {
             journalsHaveNoMoreChanges = !loadedJournalChanges
         }
         
+        // Compute our progress so far
+        var totalBytesProcessed: UInt64 = 0
+        var totalBytes: UInt64 = 0
+        if let journalByteOffsetsAtSyncStart = journalByteOffsetsAtSyncStart {
+            journalByteOffsetsAtSyncStart.forEach { identifier, startByteOffset in
+                let fileSize = fileSizes[identifier] ?? 0
+                totalBytes = totalBytes + fileSize
+                
+                let currentBytesOffset = journalByteOffsetsToUpdateAfterMerge[identifier] ?? journalByteOffsets[identifier] ?? 0
+                let bytesProcessed = currentBytesOffset - startByteOffset
+                
+                totalBytesProcessed = totalBytesProcessed + bytesProcessed
+            }
+        }
+        let percent: Double
+        if totalBytes > 0 {
+            percent = Double(totalBytesProcessed) / Double(totalBytes)
+        } else {
+            percent = 0.0
+        }
+
         DispatchQueue.main.async {
             let successType: FetchJournalSuccessType
             if commands.count == self.maxCommands {
                 // Assume there may be more results
-                successType = .partialResults(commands: commands, percent: 0.25)
+                successType = .partialResults(commands: commands, percent: percent)
             } else {
                 successType = .results(commands: commands)
             }
@@ -381,6 +428,13 @@ public class JournalManager: JournalManaging {
                 case .success(let updatedFiles):
                     // TODO: See if really care about the updatedFiles when we sync and try to do a fetchLatestCommandsWithoutSync()
                     _ = updatedFiles
+                    
+                    strongSelf.lastSuccessfulSyncTime = Date()
+                    if updatedFiles.count > 0 || strongSelf.journalByteOffsetsAtSyncStart == nil {
+                        // We just sync'ed, so record all byte offsets now before we start fetching commands
+                        strongSelf.journalByteOffsetsAtSyncStart = strongSelf.journalByteOffsets
+                    }
+                    
                     strongSelf.fetchLatestCommandsWithoutSync(completion: completion)
                     
                 case .failure:
@@ -390,6 +444,11 @@ public class JournalManager: JournalManaging {
                 }
             })
         } else {
+            if journalByteOffsetsAtSyncStart == nil {
+                // We just sync'ed, so record all byte offsets now before we start fetching commands
+                journalByteOffsetsAtSyncStart = journalByteOffsets
+            }
+
             fetchLatestCommandsWithoutSync(completion: completion)
         }
     }

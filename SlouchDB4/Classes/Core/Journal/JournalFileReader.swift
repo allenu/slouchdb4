@@ -19,12 +19,20 @@ public class JournalFileReader: JournalReadable {
     var fileData: Data?
     var fileDataEOF: Bool
     var byteOffset: UInt64
+    let fileLength: UInt64
     
     public init(url: URL) throws {
         self.url = url
         fileHandle = try FileHandle(forReadingFrom: url)
         fileDataEOF = false // assume false
         byteOffset = 0
+        
+        // Get filesize
+        fileHandle.seekToEndOfFile()
+        fileLength = fileHandle.offsetInFile
+        
+        // Go back to start of file
+        fileHandle.seek(toFileOffset: 0)
     }
     
     public func close() {

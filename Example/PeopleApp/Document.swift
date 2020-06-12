@@ -23,6 +23,7 @@ class Document: NSDocument {
     
     var personProvider: PersonProvider
     
+    var bulkModeCount: Int = 0
     var bulkInsertedObjects: [String : Person] = [:]
     var bulkUpdatedObjects: [String : Person] = [:]
     var bulkRemovedObjects: [String] = []
@@ -98,7 +99,9 @@ class Document: NSDocument {
                 
                 //if let objectHistoryStore = InMemObjectHistoryStore.create(from: url),
                 if let objectHistoryStore = SqliteObjectHistoryStore(folderUrl: tempFolderUrl),
-                    let journalManager = JournalManager.create(from: url, with: remoteFileStore) {
+                    let journalManager = JournalManager.create(from: url,
+                                                               useTempWorkingFolder: true,
+                                                               with: remoteFileStore) {
                     let changeTracker = ChangeTracker(journalManager: journalManager, objectHistoryStore: objectHistoryStore)
 
                     self.changeTracker = changeTracker
@@ -150,6 +153,37 @@ class Document: NSDocument {
                               timestamp: Date(), operation: data)
         changeTracker.append(command: command)
     }
+    
+    func startBulkMode() {
+        DispatchQueue.main.async {
+            Swift.print("startBulkMode")
+            self.bulkModeCount = self.bulkModeCount + 1
+        }
+    }
+    
+    func endBulkMode() {
+        DispatchQueue.main.async {
+            Swift.print("endBulkMode")
+            self.bulkModeCount = self.bulkModeCount - 1
+            
+            if self.bulkModeCount == 0 {
+                self.processBulkItems()
+            }
+        }
+    }
+    
+    func processBulkItems() {
+        Swift.print("processBulkItems")
+        let mergeResult = MergeResult(insertedObjects: bulkInsertedObjects,
+                                      removedObjects: bulkRemovedObjects,
+                                      updatedObjects: bulkUpdatedObjects)
+        
+        personProvider.apply(mergeResult: mergeResult)
+        
+        bulkRemovedObjects = []
+        bulkInsertedObjects = [:]
+        bulkUpdatedObjects = [:]
+    }
 
     /*
     var people: [Person] {
@@ -175,27 +209,30 @@ class Document: NSDocument {
                  partialResults: @escaping (Double) -> Void) {
         fileSystemRemoteFileStore.remoteFolderUrl = remoteFolderUrl
         
+        startBulkMode()
         changeTracker.sync(completion: { response in
-            switch response {
-            case .success:
-                self.updateChangeCount(.changeDone)
-                
-            case .failure:
-                break
+            DispatchQueue.main.async {
+                switch response {
+                case .success:
+                    self.updateChangeCount(.changeDone)
+                    
+                case .failure:
+                    break
+                }
+                self.endBulkMode()
+            
+                completion(response)
             }
-            completion(response)
         }, partialResults: partialResults)
    }
 }
 
 extension Document: ChangeTrackerDelegate {
-    func beginCommandExecution(_ changeTracker: ChangeTracker) {
-        bulkRemovedObjects = []
-        bulkInsertedObjects = [:]
-        bulkUpdatedObjects = [:]
-    }
-    
-    func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool {
+    func changeTracker(_ changeTracker: ChangeTracker,
+                       requestsExecute commands: [Command],
+                       for identifier: String,
+                       startingAt playbackPosition: PlaybackPosition,
+                       completion: @escaping (Bool) -> Void) {
 
         let decoder = JSONDecoder()
         
@@ -210,7 +247,9 @@ extension Document: ChangeTrackerDelegate {
             let existingPerson = personProvider.person(for: identifier)
             if existingPerson == nil {
                 // Problem! Cannot update a person that doesn't exist yet
-                return false
+                DispatchQueue.main.async {
+                    completion(false)
+                }
             }
             basePerson = existingPerson
         }
@@ -232,7 +271,7 @@ extension Document: ChangeTrackerDelegate {
             guard !encounteredError else { return }
             
             if let operation = try? decoder.decode(PersonDbOperation.self, from: command.operation) {
-                Swift.print("found operation: \(operation)")
+                Swift.print("found operation: \(operation.type) \(command.commandIdentifier)")
                 
                 switch operation.type {
                 case "insert":
@@ -305,15 +344,11 @@ extension Document: ChangeTrackerDelegate {
             }
         }
         
-        return !encounteredError
-    }
-    
-    func endCommandExecution(_ changeTracker: ChangeTracker) {
-        let mergeResult = MergeResult(insertedObjects: bulkInsertedObjects,
-                                      removedObjects: bulkRemovedObjects,
-                                      updatedObjects: bulkUpdatedObjects)
-        
-        personProvider.apply(mergeResult: mergeResult)
+        DispatchQueue.main.async {
+            if self.bulkModeCount == 0 {
+                self.processBulkItems()
+            }
+            completion(!encounteredError)
+        }
     }
 }
-

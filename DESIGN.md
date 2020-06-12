@@ -62,3 +62,4 @@ storage folder. As for the journal files, if any locals or remotes are found in 
 they should take precedence over the previous storage folder-based journal files when copying them
 over.
 
+

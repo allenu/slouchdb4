@@ -175,7 +175,9 @@ extension PersonProvider {
                 userInfo["removedIdentifiers"] = removedIdentifiers
             }
 
-            NotificationCenter.default.post(name: PersonProvider.dataDidChangeNotification, object: self, userInfo: userInfo)
+            DispatchQueue.main.async {
+                NotificationCenter.default.post(name: PersonProvider.dataDidChangeNotification, object: self, userInfo: userInfo)
+            }
         }
     }
     

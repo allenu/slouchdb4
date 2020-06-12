@@ -33,3 +33,92 @@ a pre-alpha stage, but progress is being made quickly. Short term goals:
 - wrap everything up in a CocoaPod
 - test it out with a massive list of diffs and large data to verify that it has small mem footprint and is fast
 
+--------------------------------------------------------------------------------
+# How to Use it
+
+ChangeTracker acts as proxy to your database, but only for writes. When you would normally write to your database
+(be it inserting a new item, updating an existing item, or deleting an existing item), instead of doing it on the
+database directly, you encode a command that contains all the details of the mutation operation and provide it to
+the ChangeTracker object. It will then store this info in a local journal. After storing it in the local journal,
+it will then call your delegate to request the command you provided earlier is executed. When this command is
+executed is up to the ChangeTracker, but generally it will execute it as soon as possible.
+
+Other peers which are also using ChangeTracker, but on different devices, will generate their own journals that
+describe the commands they execute to do mutations. When ChangeTracker does a sync, it will push the latest
+version of these journals to a common "remote repo". Each ChangeTracker also periodically downloads the latest
+version of these journals as well.
+
+To make use of the remote journals, ChangeTracker merges all commands from all journals and sequences them in order
+for each object. It then calls the client to re-constitute these objects using the merged and sequenced commands.
+
+## High-level Best Practices
+
+- Avoid chained operations where one mutation would lead to another mutation. If you have a system where
+  causing a change to object A causes a change to object B, this can cause additional journal commands to be
+  created. This can grow the journal size. If possible, object B should be dynamically re-generated on the fly
+  without having to write to the database. 
+
+- Data that changes frequently and doesn't necessarily need to be shared across peers should not be saved to
+  the common journal. For instance, if you are storing the user's selection of a list of items, every time you
+  move around the list, a command will be added to journal, quickly growing it in size. This type of setting
+  could just be saved to the local device to avoid growing the journal. Another option is to only save the
+  setting when the user exits the app, instead of whenever the selection changes.
+
+## Creating ChangeTracker
+- Instantiate ChangeTracker and pass in a JournalManager and an ObjectHistoryStore
+  - JournalManager takes care of pulling and pushing journals to the shared remote
+  - ObjectHistoryStore takes care of storing a full history of all commands for each "object" in the system
+
+## How ChangeTracker Calls You
+- Assign a delegate to the ChangeTracker. It is responsible for executing a list of commands provided to it for
+  a given object. The delegate method for executing commands will always be called on the same object.
+  - the request(s) for executing commands will always be wrapped by matching beginCommandExecution() and endCommandExecution()
+    - this is to allow you to batch multiple changes together. For instance, you may wish to only update the UI once
+      all calls to execute commands are done.
+    - you might see a sequence of delegate callbacks like this:
+
+        beginCommandExecution()
+        execute(commands:,for:,startingAt:,completion:)
+        execute(commands:,for:,startingAt:,completion:)
+        execute(commands:,for:,startingAt:,completion:)
+        execute(commands:,for:,startingAt:,completion:)
+        execute(commands:,for:,startingAt:,completion:)
+        endCommandExecution()
+
+  - the list of commands provided will either start from the beginning of all commands (starting at PlaybackPosition.start), or
+    appending onto the current state of the object (starting at PlaybackPosition.currentPosition)
+    - you must be able to handle both scenarios
+
+  - the Command struct provides common info and a special payload (operation Data property)
+    - objectIdentifier -- which object this command is targeting
+    - commandIdentifier -- a UUID that uniquely identifies this command
+    - timestamp -- when the command was originally issued
+    - operation -- Data defined by you, which describes what command actually "is"
+
+  - generally, the operation Data will be serialized data that you deserialize (for instance via JSONDecoder) into a struct
+
+
+## How to send commands to ChangeTracker
+
+- create a Command object
+- call changeTracker.append(command: command, completion: {})
+
+
+# Queues
+
+- ChangeTracker uses its own background queue for executing tasks
+- when client is called to execute a command, feel free to execute those tasks in a background thread of your choosing.
+  You must call the completion block to notify ChangeTracker that the task has completed.
+
+  Assume that your execute() handler is called in a background thread.
+
+  If you need to execute code in another thread in your execute handler, just make sure the completion block is called
+  only until all async code you issue is complete.
+
+
+# Completion Blocks
+
+All commands issued to ChangeTracker are processed asynchronously and there is no guarantee on how quickly they will be 
+executed. To ensure clients can run code that depends on the command being executed, you may provide a completion block
+to append(). When the command is executed, the completion block is called.
+

@@ -19,9 +19,9 @@ public enum PlaybackPosition {
 }
 
 public protocol CommandExecutor: class {
-    func beginCommandExecution()
-    func execute(commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition) -> Bool
-    func endCommandExecution()
+    func execute(commands: [Command], for identifier: String,
+                 startingAt playbackPosition: PlaybackPosition,
+                 completion: @escaping (Bool) -> Void)
 }
 
 public struct Command: Codable {
@@ -132,49 +132,65 @@ public class ObjectHistoryTracker {
     // Go through pending commands and process the changes they would generate.
     // This mutates our internal state to consider those changes applied.
     
-    func process(commandExecutor: CommandExecutor) {
+    func process(commandExecutor: CommandExecutor, completion: @escaping CompletionBlock) {
         let pendingUpdates = objectHistoryStore.pendingUpdates()
         
-        commandExecutor.beginCommandExecution()
-        
-        pendingUpdates.forEach { identifier in
-            if let objectHistoryState = objectHistoryStore.objectHistoryState(for: identifier) {
-                switch objectHistoryState.processingState {
-                case .fastForward(let nextCommandIndex):
-                    
-                    let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
-                    if justNewCommands.count > 0 {
-                        let success = commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition)
+        DispatchQueue.global(qos: .userInitiated).async {
+            let dispatchGroup = DispatchGroup()
+            
+            print("ObjectHistoryTracker.process(commandExecutor:)")
+            print("processing: \(pendingUpdates)")
+                
+            pendingUpdates.forEach { identifier in
+                if let objectHistoryState = self.objectHistoryStore.objectHistoryState(for: identifier) {
+                    switch objectHistoryState.processingState {
+                    case .fastForward(let nextCommandIndex):
                         
-                        if success {
-                            objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
-                            objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
+                        let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
+                        print("ffwd: \(justNewCommands.count)")
+                        if justNewCommands.count > 0 {
+                            dispatchGroup.enter()
+                            commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition, completion: { success in
+                                
+                                if success {
+                                    objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                                    self.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
 
-                            objectHistoryStore.removePendingUpdate(for: identifier)
-                        } else {
-                            // Incomplete set of commands, so keep in the store and hope that we sync newer info
-                            // that will make it complete later
+                                    self.objectHistoryStore.removePendingUpdate(for: identifier)
+                                } else {
+                                    // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                                    // that will make it complete later
+                                }
+                                dispatchGroup.leave()
+                            })
                         }
+                        
+                    case .replay:
+                        assert(objectHistoryState.commands.count > 0)
+                        dispatchGroup.enter()
+                        print("replay: \(objectHistoryState.commands.count)")
+                        commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start, completion: { success in
+                            
+                            if success {
+                                objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                                self.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
+                                self.objectHistoryStore.removePendingUpdate(for: identifier)
+                            } else {
+                                // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                                // that will make it complete later
+                            }
+                            dispatchGroup.leave()
+                        })
+                        
+
                     }
-                    
-                case .replay:
-                    assert(objectHistoryState.commands.count > 0)
-                    let success = commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start)
-                    
-                    if success {
-                        objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
-                        objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
-                        objectHistoryStore.removePendingUpdate(for: identifier)
-                    } else {
-                        // Incomplete set of commands, so keep in the store and hope that we sync newer info
-                        // that will make it complete later
-                    }
+                } else {
+                    Swift.print("Could not find object history state for object \(identifier)")
                 }
-            } else {
-                Swift.print("Could not find object history state for object \(identifier)")
             }
+
+            dispatchGroup.wait()
+            completion()
         }
-        
-        commandExecutor.endCommandExecution()
     }
 }

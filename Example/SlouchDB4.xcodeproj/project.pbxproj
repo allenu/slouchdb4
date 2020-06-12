@@ -25,6 +25,8 @@
 		B71189B823E6004500D29302 /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189B723E6004500D29302 /* Person.swift */; };
 		B71189C123E749B200D29302 /* FileSystemRemoteFileStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189BF23E7495E00D29302 /* FileSystemRemoteFileStore.swift */; };
 		B72C0C5A2488C81600A24C9E /* MergeResult.swift in Sources */ = {isa = PBXBuildFile; fileRef = B72C0C572488C5EE00A24C9E /* MergeResult.swift */; };
+		B72C0C652490A8C200A24C9E /* InMemObjectStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B76BA9AC240246B200BB3B87 /* InMemObjectStore.swift */; };
+		B72C0C662490A8CD00A24C9E /* Person.swift in Sources */ = {isa = PBXBuildFile; fileRef = B71189B723E6004500D29302 /* Person.swift */; };
 		B75F21F12410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
 		B75F21F22410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
 		B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B75F21F02410C5B000AD7C68 /* SqliteObjectHistoryStore.swift */; };
@@ -645,6 +647,8 @@
 				B76BA9B124024B7900BB3B87 /* InMemObjectHistoryStore.swift in Sources */,
 				B76BA99523F877CD00BB3B87 /* ViewController.swift in Sources */,
 				B76BA99323F877CD00BB3B87 /* AppDelegate.swift in Sources */,
+				B72C0C652490A8C200A24C9E /* InMemObjectStore.swift in Sources */,
+				B72C0C662490A8CD00A24C9E /* Person.swift in Sources */,
 				B75F21F32410C5B000AD7C68 /* SqliteObjectHistoryStore.swift in Sources */,
 				B76BA9A023F8799500BB3B87 /* FileSystemRemoteFileStore.swift in Sources */,
 			);
