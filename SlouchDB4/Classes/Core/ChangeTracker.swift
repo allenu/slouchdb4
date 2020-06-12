@@ -41,7 +41,7 @@ public protocol JournalManaging {
     var localIdentifier: String { get }
     
     func addToLocalJournal(command: Command)
-    func fetchLatestCommands(completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void)
+    func fetchLatestCommands(skipRemoteFetch: Bool, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void)
     
     func save(to folderUrl: URL)
 }
@@ -123,7 +123,13 @@ public class ChangeTracker {
         }
     }
     
-    // Local database changes
+    // Add commands to the tracker.
+    //
+    // completion() will be called once the commands are executed. Note that even if the commands
+    // were already in the system (in the case of a sync, which leads to the same commands being
+    // attempted to be appended), completion() will still be called when the commands are processed.
+    // This is to ensure symmetry and let the client always put code in the completion if it needs
+    // it to depend on the execution order.
     public func append(command: Command, isRemote: Bool = false, completion: CompletionBlock? = nil) {
         queue.async {
             if let completion = completion {
@@ -214,12 +220,13 @@ public class ChangeTracker {
         }
     }
 
-    public func sync(completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
+    public func sync(skipRemoteFetch: Bool = false, completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
         queue.async {
             guard !self.isSyncing else { return }
             self.isSyncing = true
 
-            self.journalManager.fetchLatestCommands(completion: { [weak self] response, callbackWhenCommandsMerged in
+            self.journalManager.fetchLatestCommands(skipRemoteFetch: skipRemoteFetch,
+                                                    completion: { [weak self] response, callbackWhenCommandsMerged in
                 guard let strongSelf = self else { return }
                 
                 switch response {
@@ -233,7 +240,10 @@ public class ChangeTracker {
 
                             // Still have more results, so run sync() again
                             self?.isSyncing = false
-                            strongSelf.sync(completion: completion, partialResults: partialResults)
+                            
+                            // NOTE: We explicitly skip remote fetch now to allow us to process all downloaded
+                            // results first.
+                            strongSelf.sync(skipRemoteFetch: true, completion: completion, partialResults: partialResults)
                         })
                         
                     case .results(let commands):

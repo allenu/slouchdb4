@@ -99,7 +99,7 @@ public class JournalManager: JournalManaging {
 //        } else {
 //            enoughTimeElapsedSinceLastSync = true
 //        }
-//        
+//
 //        return enoughTimeElapsedSinceLastSync
     }
 
@@ -419,8 +419,8 @@ public class JournalManager: JournalManaging {
         }
     }
     
-    public func fetchLatestCommands(completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
-        if shouldSync {
+    public func fetchLatestCommands(skipRemoteFetch: Bool = false, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
+        if shouldSync && !skipRemoteFetch {
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
