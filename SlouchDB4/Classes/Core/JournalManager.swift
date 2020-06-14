@@ -59,13 +59,15 @@ public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [St
 public class JournalManager: JournalManaging {
     let maxCommands: Int = 100
     
-    let remoteFileStore: RemoteFileStoring
+    public weak var remoteFileStore: RemoteFileStoring?
     var journalFileManager: JournalFileManaging
 
     // --------------------------------------
     // State data -- should come from storage
     // --------------------------------------
     public var localIdentifier: String
+    // Offsets into each journal that we've processed... Note that this excludes the local
+    // journal. Local journal data is automatically processed as it comes in.
     var journalByteOffsets: [String : UInt64]
     
     // When sync begins, record where journal byte offsets are so that we can
@@ -103,9 +105,8 @@ public class JournalManager: JournalManaging {
 //        return enoughTimeElapsedSinceLastSync
     }
 
-    public init(journalFileManager: JournalFileManaging, remoteFileStore: RemoteFileStoring, storedState: JournalManagerStoredState) {
+    public init(journalFileManager: JournalFileManaging, storedState: JournalManagerStoredState) {
         self.journalFileManager = journalFileManager
-        self.remoteFileStore = remoteFileStore
 
         self.localIdentifier = storedState.localIdentifier
         self.journalByteOffsets = storedState.journalByteOffsets
@@ -113,7 +114,7 @@ public class JournalManager: JournalManaging {
         self.remoteFileVersion = storedState.remoteFileVersion
     }
     
-    public static func create(from folderUrl: URL, useTempWorkingFolder: Bool, with remoteFileStore: RemoteFileStoring) -> JournalManager? {
+    public static func create(from folderUrl: URL, useTempWorkingFolder: Bool) -> JournalManager? {
         let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
 
         let decoder = JSONDecoder()
@@ -133,7 +134,7 @@ public class JournalManager: JournalManaging {
                 workingFolderUrl = folderUrl
             }
             let storageFolderUrl = useTempWorkingFolder ? folderUrl : nil
-            let journalManager = JournalManager(journalFileManager: JournalFileManager(workingFolderUrl: workingFolderUrl, storageFolderUrl: storageFolderUrl), remoteFileStore: remoteFileStore, storedState: storedState)
+            let journalManager = JournalManager(journalFileManager: JournalFileManager(workingFolderUrl: workingFolderUrl, storageFolderUrl: storageFolderUrl), storedState: storedState)
             
             return journalManager
         }
@@ -171,6 +172,8 @@ public class JournalManager: JournalManaging {
     }
     
     func syncFiles(completion: @escaping (SyncFilesResponse) -> Void) {
+        guard let remoteFileStore = remoteFileStore else { return }
+        
         let doFetchRemoteFiles: ([String : String]) -> Void = { [weak self] fetchedVersions in
             guard let strongSelf = self else { return }
             
@@ -182,22 +185,22 @@ public class JournalManager: JournalManaging {
 //            print("syncFiles fetching \(filesToFetch)")
             
             if filesToFetch.count > 0 {
-                strongSelf.remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
+                remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
                     guard let strongSelf = self else { return }
                     
 //                    print("fetched result: \(response)")
                     
                     switch response {
-                    case .success(let fileAndVersion):
-                        assert(fileAndVersion.count == filesToFetch.count)
+                    case .success(let filesAndVersions):
+                        assert(filesAndVersions.count == filesToFetch.count)
                         
                         // Do file replace in background queue
                         DispatchQueue.global(qos: .background).async {
-                            let updatedFiles: [String] = fileAndVersion.map { $0.url.lastPathComponent }
+                            let updatedFiles: [String] = filesAndVersions.map { $0.url.lastPathComponent }
                             
                             let dispatchGroup = DispatchGroup()
                             
-                            fileAndVersion.forEach { fileAndVersion in
+                            filesAndVersions.forEach { fileAndVersion in
                                 let remoteFileUrl = fileAndVersion.url
                                 let fileIdentifier = remoteFileUrl.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
                                 strongSelf.remoteFileVersion[fileIdentifier] = fileAndVersion.version
@@ -253,10 +256,10 @@ public class JournalManager: JournalManaging {
         }
         
         DispatchQueue.global(qos: .background).async {
-            self.remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
+            remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
                 guard let strongSelf = self else { return }
                 
-//                print("fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
+                print("fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
                 
                 switch fetchedRemoteFileVersionsResponse {
                 case .success(let fetchedVersions):
@@ -271,7 +274,7 @@ public class JournalManager: JournalManaging {
                     if shouldPushLocalFile {
                         // Get the URL of the local journal
                         if let localFileUrl = strongSelf.journalFileManager.localFileUrl(for: strongSelf.localIdentifier) {
-                            strongSelf.remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
+                            remoteFileStore.push(localFile: localFileUrl) { [weak self] pushResponse in
                                 guard let strongSelf = self else { return }
                                 
                                 switch pushResponse {

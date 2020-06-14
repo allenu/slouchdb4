@@ -104,13 +104,6 @@ public class ChangeTracker {
         }
     }
     
-//    func enqueue(commands: [Command]) {
-//        queue.async {
-//            // TODO: Move to start of process()
-//            self.objectHistoryTracker.enqueue(commands: commands)
-//        }
-//    }
-    
     // Reset the history for a given object
     public func manuallyResetHistory(for identifier: String, commands: [Command]) {
         queue.async {

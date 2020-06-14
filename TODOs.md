@@ -1,4 +1,36 @@
 
+- [ ] SlouchDB changes
+    - [ ] Consider making the local journal just the same as remote journals when processing. Don't have append()
+          ask if it's local or remote. Instead, just add it to the appropriate journal file and keep a byte offset
+          to the last processed command in that journal, just like everything else.
+
+          - The only thing that should be special about local journals is that WE DO NOT PULL THEM DOWN. The only
+            thing that can add to a local journal is the local client.
+
+            However, if a local journal is no longer treated as the local journal (i.e. we move onto a new local
+            journal), the old local journal should now be treated as a remote like everything else!
+
+            - [ ] Add tests to verify:
+
+                - [ ] if we delete ObjectHistoryState and we just have journals, it should be possible to re-create
+                      the database from scratch.
+
+        - [ ] New design?
+
+            - all journals go in the same folder
+            - the client has a list of which ones are local journals
+            - the client has a current local journal
+            - the only different between a local and remote journal is this:
+                - local journals are only updated by appending to them within the local client
+                - local journals are PUSHED up to the remote and are never PULLED down
+                - remote journals are always PULLED down
+
+    - [ ] add a journal reader for the local journals
+    - [ ] keep a list of local identifiers
+    - [ ] maintain current local identifier string
+    - [ ] when we append to the local journal, close the journal reader for it so that it gets opened up
+          again later with the latest changes to the file.
+
 - [ ] Redo how diff entries work
     - client side API changes:
 
