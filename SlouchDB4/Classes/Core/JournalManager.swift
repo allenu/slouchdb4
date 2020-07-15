@@ -9,6 +9,8 @@
 import Foundation
 
 public protocol JournalFileManaging {
+    var remotesFolder: URL { get }
+    
     func save(to rootFolderUrl: URL)
     
     func writeLocal(commands: [Command], to identifier: String)
@@ -112,6 +114,8 @@ public class JournalManager: JournalManaging {
         self.journalByteOffsets = storedState.journalByteOffsets
         self.lastLocalVersionPushed = storedState.lastLocalVersionPushed
         self.remoteFileVersion = storedState.remoteFileVersion
+        
+        detectRemotes()
     }
     
     public static func create(from folderUrl: URL, useTempWorkingFolder: Bool) -> JournalManager? {
@@ -169,6 +173,27 @@ public class JournalManager: JournalManaging {
         // Clear last version pushed to indicate that we need to re-push
         lastLocalVersionPushed = "version-is-dirty"
         journalFileManager.writeLocal(commands: [command], to: localIdentifier)
+    }
+    
+    // Detect any remtoes that aren't known
+    public func detectRemotes() {
+        let remotesFolder = journalFileManager.remotesFolder
+        
+        let fileEnumerator = FileManager.default.enumerator(at: remotesFolder, includingPropertiesForKeys: nil, options: [.skipsSubdirectoryDescendants])
+        fileEnumerator?.skipDescendants()
+        
+        while let element = fileEnumerator?.nextObject() {
+            if let fileURL = element as? URL {
+                if fileURL.lastPathComponent.hasSuffix(".journal" ) {
+                    let journalIdentifier = fileURL.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
+                    
+                    if journalByteOffsets[journalIdentifier] == nil {
+                        journalByteOffsets[journalIdentifier] = 0
+                    }
+                }
+            }
+        }
+
     }
     
     func syncFiles(completion: @escaping (SyncFilesResponse) -> Void) {

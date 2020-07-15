@@ -31,6 +31,10 @@ public class JournalFileManager: JournalFileManaging {
     public let workingFolderUrl: URL
     public var storageFolderUrl: URL?
     
+    public var remotesFolder: URL {
+        return workingFolderUrl.appendingPathComponent("remotes")
+    }
+    
     var localWriters: [String : JournalFileWriter] = [:]
     var remoteReaders: [String : JournalFileReader] = [:]
     
@@ -78,8 +82,6 @@ public class JournalFileManager: JournalFileManaging {
     }
     
     public func save(to newStorageFolderUrl: URL) {
-        print("Save called to \"\(newStorageFolderUrl.path)\"")
-        
         JournalFileManager.ensureLocalsAndRemotesDirectoriesExist(url: newStorageFolderUrl)
         
         // We're about to save. Three scenarios can occur:
