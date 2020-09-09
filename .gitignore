@@ -1,2 +1,4 @@
+*.xcuserdatad
 Pods
+.DS_Store
 

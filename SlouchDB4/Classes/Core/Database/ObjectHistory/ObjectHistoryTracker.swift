@@ -190,4 +190,8 @@ public class ObjectHistoryTracker {
             completion()
         }
     }
+    
+    func resetSyncState() {
+        objectHistoryStore.resetSyncState()
+    }
 }

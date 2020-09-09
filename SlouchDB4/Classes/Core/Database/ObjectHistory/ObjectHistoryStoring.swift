@@ -16,4 +16,6 @@ public protocol ObjectHistoryStoring {
     func update(objectHistoryState: ObjectHistoryState, for identifier: String)
 
     func save(to fileUrl: URL)
+    
+    func resetSyncState()
 }

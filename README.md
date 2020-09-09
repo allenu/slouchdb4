@@ -122,3 +122,67 @@ All commands issued to ChangeTracker are processed asynchronously and there is n
 executed. To ensure clients can run code that depends on the command being executed, you may provide a completion block
 to append(). When the command is executed, the completion block is called.
 
+
+
+# --------------------------------------------------------------------------------
+# How ChangeTracker Maintains State
+
+When append() is called, the command goes into a local journal.
+The command is also added to an unprocessedCommands list.
+The command processor is started if it is inactive.
+The command processor operates in its own dispatch queue. Only one processor runs at a time.
+A run of the processor works like this:
+    - enqueue the unprocessedCommands into the ObjectHistoryTracker. this causes the commands
+      to be permanently stored in the full list of commands for the given object they are
+      affecting. (i.e. take the objectIdentifier of the command). Commands are stored in
+      sort order based on timestamp). One other piece of info is stored when the new command
+      is added:
+
+        - if the command is just appended to the existing command list, it is treated as
+          a fast-forward change. This info is used in the pending update process stage
+          below. (If the command list is already treated as a replay change, it is not
+          changed.)
+
+        - if the command is inserted into the existing command list, it is treated as
+          a replay change. The entire command list is replayed for the object during
+          the pending update phase.
+
+    - the ObjectHistoryTracker then marks the object as needing an update
+
+    - after all the commands are stored in the tracker and pending updates are recorded, 
+      each object that has pending updates is enumerated:
+
+      - if the command list change is a fast forward, all new commands past the nextCommandIndex
+        are processed
+
+      - if it is a replay, all commands from the beginning are processed.
+
+      - call the commandExecutor delegate to process the list of commands as a group, but
+        asynchronously
+
+    - once all commands in all objects are executed, finish processing by calling the completion
+      blocks on all commands appended
+
+--------------------------------------------------------------------------------
+# Generating a journal from an existing database
+
+There may be cases you need to spit out a local journal based on a database that has already been
+created, one that wasn't created with the journal.
+
+To do so requires some care since the normal process mentioned above where append() is called with
+the journal commands causes the command to be immediately executed.
+
+To generate a local journal without executing the commands and just treating them as "already executed"
+within ObjectHistoryTracker, do the following after first ensuring that the changeTracker is not syncing
+and that it is empty:
+
+    changeTracker.manuallyResetHistory(for: objectIdentifier, commands: commands)
+
+This will cause the following:
+
+    - changeTracker will add the command to its local journal
+    - objectHistoryTracker will update its internal history for that object to match the commands list
+      AND treat them as having been processed
+
+From this point on, if an append() is called on the objectIdentifier, it will be correctly handled.
+

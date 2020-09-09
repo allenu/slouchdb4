@@ -44,6 +44,8 @@ public protocol JournalManaging {
     func fetchLatestCommands(skipRemoteFetch: Bool, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void)
     
     func save(to folderUrl: URL)
+    
+    func resetSyncState()
 }
 
 public protocol ChangeTrackerDelegate: class {
@@ -137,7 +139,6 @@ public class ChangeTracker {
     }
     
     public func append(contentsOf commands: [Command], isRemote: Bool = false, completion: CompletionBlock?) {
-//        Swift.print("append(contentsOf: \(commands.count) commands")
         queue.async {
             guard commands.count > 0 else {
                 self.queue.async {
@@ -184,8 +185,6 @@ public class ChangeTracker {
             
             self.isProcessing = true
             
-//            print("startProcessingIfNeeded running. enqueing \(self.unprocessedCommands.count) unprocessed commands")
-            
             // Put things in object tracker and clear unprocessed queue
             self.objectHistoryTracker.enqueue(commands: self.unprocessedCommands)
             self.currentCommandCompletions = self.unprocessedCompletions
@@ -215,7 +214,10 @@ public class ChangeTracker {
 
     public func sync(skipRemoteFetch: Bool = false, completion: @escaping (SyncResponse) -> Void, partialResults: @escaping (Double) -> Void) {
         queue.async {
-            guard !self.isSyncing else { return }
+            guard !self.isSyncing else {
+                assertionFailure("Called while already syncing. Don't let this happen.")
+                return }
+            
             self.isSyncing = true
 
             self.journalManager.fetchLatestCommands(skipRemoteFetch: skipRemoteFetch,
@@ -255,6 +257,11 @@ public class ChangeTracker {
                 } // switch response
             }) // fetchLatestCommands(completion:)
         }
+    }
+    
+    public func resetSyncState() {
+        journalManager.resetSyncState()
+        objectHistoryTracker.resetSyncState()
     }
 }
 

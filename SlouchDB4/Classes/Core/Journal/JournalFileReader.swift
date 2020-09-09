@@ -140,7 +140,8 @@ public class JournalFileReader: JournalReadable {
                             encounteredEndOfFile = true
                         }
                     } else {
-                        // Can't process JSON, assume EOF.
+                        // Can't process JSON, assume EOF. Future proofing as well: if we get here,
+                        // we may be processing new commands that do not match the Command style.
                         assertionFailure()
                         encounteredEndOfFile = true
                     }

@@ -5,6 +5,18 @@
 //  Created by Allen Ussher on 1/25/20.
 //  Copyright © 2020 Ussher Press. All rights reserved.
 //
+//  What does a JournalManager do? It manages this knowledge:
+//  - what our local device identifier is
+//  - the last version of our remotes we pushed up to the remote
+//  - which remote journal files we have and which version they are
+//  - where we are in reading those journal files (the byte offset within the file)
+//
+//  Clients can ask the journal manager to get the latest commands. What this does is load
+//  the given journal file requested and starts reading data from it at the last read index.
+//  This ensures we don't load the entire file into memory.
+//
+//  JournalManager is also responsible for talking to the remoteFileStore to push any local
+//  files to the remote and to pull any remote files to local.
 
 import Foundation
 
@@ -27,11 +39,35 @@ public protocol JournalFileManaging {
     func readNextCommands(from identifier: String, byteOffset: UInt64, maxCommands: Int) -> JournalReadResult
 }
 
+public protocol JournalManagerStateStoring {
+    func localIdentifier() -> String
+    func allLocalIdentifiers() -> [String]
+    
+    // Offsets into each journal that we've processed... Note that this excludes the local
+    // journal. Local journal data is automatically processed as it comes in.
+    func journalByteOffset(identifier: String) -> UInt64?
+    func updateJournal(identifier: String, byteOffset: UInt64)
+    func allJournalByteOffsets() -> [String : UInt64]
+    
+    // Info about the versions of the remote journals.
+    func remoteFileVersion(identifier: String) -> String?
+    func updateRemoteJournal(identifier: String, fileVersion: String)
+    func allRemoteFileVersions() -> [String : String]
+    
+    // Info about which version of the local journal(s) we have pushed up last.
+    func lastVersionPushed(identifier: String) -> String?
+    func updateLocalJournal(identifier: String, lastVersionPushed: String)
+    
+    // Reset all byte offsets and remote versions (to unknown) and pushed versions to none.
+    // This forces us to resync everything on next sync.
+    func resetSyncState()
+}
+
 public struct JournalManagerStoredState: Codable {
-    let localIdentifier: String
-    let journalByteOffsets: [String : UInt64]
-    let remoteFileVersion: [String : String]
-    let lastLocalVersionPushed: String
+    public let localIdentifier: String
+    public let journalByteOffsets: [String : UInt64]
+    public let remoteFileVersion: [String : String]
+    public let lastLocalVersionPushed: String
     
     public init(localIdentifier: String,
                 journalByteOffsets: [String : UInt64],
@@ -59,91 +95,29 @@ public func findNewerRemoteFiles(excludedFiles: [String], localFileVersions: [St
 }
 
 public class JournalManager: JournalManaging {
-    let maxCommands: Int = 100
+    let maxCommands: Int = 1000
     
     public weak var remoteFileStore: RemoteFileStoring?
     var journalFileManager: JournalFileManaging
+    let stateStore: JournalManagerStateStoring
 
     // --------------------------------------
     // State data -- should come from storage
     // --------------------------------------
-    public var localIdentifier: String
-    // Offsets into each journal that we've processed... Note that this excludes the local
-    // journal. Local journal data is automatically processed as it comes in.
-    var journalByteOffsets: [String : UInt64]
+    public var localIdentifier: String {
+        return stateStore.localIdentifier()
+    }
     
     // When sync begins, record where journal byte offsets are so that we can
     // track progress as we process commands.
     var journalByteOffsetsAtSyncStart: [String : UInt64]?
-    
-    // Key is the lastPathComponent of the file. However, the lastPathComponent of
-    // a journal file is just the guid, so no to worry about file extensions.
-    var remoteFileVersion: [String : String]
-    
-    // TODO: Make it possible to rotate through local identifiers
-    var lastLocalVersionPushed: String
-    
-    var lastSuccessfulSyncTime: Date?
-    var shouldSync: Bool {
-        // TODO: Logic to see if we should sync remotes
-        // Some potential rules:
-        // - we do have a remote setup properly
-        // - we have internet access
-        // - enough time has elapsed since last sync
-        
-        return true
 
-        // This logic doesn't work b/c it doesn't take into account if we changed anything in the last
-        // N minutes.
-//        let enoughTimeElapsedSinceLastSync: Bool
-//        if let lastSuccessfulSyncTime = self.lastSuccessfulSyncTime {
-//            let now = Date()
-//            let minTimeBetweenSyncs: TimeInterval = 5 * 60
-//            enoughTimeElapsedSinceLastSync = now.timeIntervalSince(lastSuccessfulSyncTime) >= minTimeBetweenSyncs
-//        } else {
-//            enoughTimeElapsedSinceLastSync = true
-//        }
-//
-//        return enoughTimeElapsedSinceLastSync
-    }
-
-    public init(journalFileManager: JournalFileManaging, storedState: JournalManagerStoredState) {
+    public init(stateStore: JournalManagerStateStoring,
+                journalFileManager: JournalFileManaging) {
+        self.stateStore = stateStore
         self.journalFileManager = journalFileManager
-
-        self.localIdentifier = storedState.localIdentifier
-        self.journalByteOffsets = storedState.journalByteOffsets
-        self.lastLocalVersionPushed = storedState.lastLocalVersionPushed
-        self.remoteFileVersion = storedState.remoteFileVersion
         
         detectRemotes()
-    }
-    
-    public static func create(from folderUrl: URL, useTempWorkingFolder: Bool) -> JournalManager? {
-        let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
-
-        let decoder = JSONDecoder()
-        decoder.dateDecodingStrategy = .iso8601
-        
-        if let data = try? Data(contentsOf: fileUrl),
-            let storedState = try? decoder.decode(JournalManagerStoredState.self, from: data) {
-            
-            let workingFolderUrl: URL
-            
-            if useTempWorkingFolder {
-                let directory = NSTemporaryDirectory()
-                let subpath = UUID().uuidString
-                let tempUrl = NSURL.fileURL(withPathComponents: [directory, subpath])!
-                workingFolderUrl = tempUrl
-            } else {
-                workingFolderUrl = folderUrl
-            }
-            let storageFolderUrl = useTempWorkingFolder ? folderUrl : nil
-            let journalManager = JournalManager(journalFileManager: JournalFileManager(workingFolderUrl: workingFolderUrl, storageFolderUrl: storageFolderUrl), storedState: storedState)
-            
-            return journalManager
-        }
-        
-        return nil
     }
     
     public func save(to folderUrl: URL) {
@@ -151,31 +125,16 @@ public class JournalManager: JournalManaging {
         
         // Make note of folder now that we're saving
         self.journalFileManager.save(to: folderUrl)
-        
-        let storedState = JournalManagerStoredState(localIdentifier: localIdentifier,
-                                                    journalByteOffsets: journalByteOffsets,
-                                                    remoteFileVersion: remoteFileVersion,
-                                                    lastLocalVersionPushed: lastLocalVersionPushed)
-        let fileUrl = folderUrl.appendingPathComponent("journal-state.json")
-        do {
-            let encoder = JSONEncoder()
-            encoder.dateEncodingStrategy = .iso8601
-            
-            let data = try encoder.encode(storedState)
-            try data.write(to: fileUrl)
-        } catch {
-            print("Error saving to \(fileUrl)")
-        }
-        
     }
     
     public func addToLocalJournal(command: Command) {
         // Clear last version pushed to indicate that we need to re-push
-        lastLocalVersionPushed = "version-is-dirty"
+        stateStore.updateLocalJournal(identifier: localIdentifier, lastVersionPushed: "version-is-dirty")
+
         journalFileManager.writeLocal(commands: [command], to: localIdentifier)
     }
     
-    // Detect any remtoes that aren't known
+    // Detect any remotes that aren't known
     public func detectRemotes() {
         let remotesFolder = journalFileManager.remotesFolder
         
@@ -187,8 +146,9 @@ public class JournalManager: JournalManaging {
                 if fileURL.lastPathComponent.hasSuffix(".journal" ) {
                     let journalIdentifier = fileURL.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
                     
-                    if journalByteOffsets[journalIdentifier] == nil {
-                        journalByteOffsets[journalIdentifier] = 0
+                    // No byte offset, so we should store that this exists.
+                    if stateStore.journalByteOffset(identifier: journalIdentifier) == nil {
+                        stateStore.updateJournal(identifier: journalIdentifier, byteOffset: 0)
                     }
                 }
             }
@@ -202,9 +162,11 @@ public class JournalManager: JournalManaging {
         let doFetchRemoteFiles: ([String : String]) -> Void = { [weak self] fetchedVersions in
             guard let strongSelf = self else { return }
             
+            let knownRemoteFileVersions: [String : String] = strongSelf.stateStore.allRemoteFileVersions()
+            
             // Fetch all those files that differ from local version
-            let filesToFetch = findNewerRemoteFiles(excludedFiles: [strongSelf.localIdentifier],
-                                                    localFileVersions: strongSelf.remoteFileVersion,
+            let filesToFetch = findNewerRemoteFiles(excludedFiles: strongSelf.stateStore.allLocalIdentifiers(),
+                                                    localFileVersions: knownRemoteFileVersions,
                                                     remoteFileVersions: fetchedVersions)
             
 //            print("syncFiles fetching \(filesToFetch)")
@@ -228,7 +190,7 @@ public class JournalManager: JournalManaging {
                             filesAndVersions.forEach { fileAndVersion in
                                 let remoteFileUrl = fileAndVersion.url
                                 let fileIdentifier = remoteFileUrl.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
-                                strongSelf.remoteFileVersion[fileIdentifier] = fileAndVersion.version
+                                strongSelf.stateStore.updateRemoteJournal(identifier: fileIdentifier, fileVersion: fileAndVersion.version)
                                 
                                 dispatchGroup.enter()
                                 
@@ -241,9 +203,9 @@ public class JournalManager: JournalManaging {
 
                                         DispatchQueue.main.async {
                                             // Add journal readers for each journal that we're missing
-                                            if strongSelf.journalByteOffsets[fileIdentifier] == nil {
+                                            if strongSelf.stateStore.journalByteOffset(identifier: fileIdentifier) == nil {
                                                 // Add new entry since it wasn't there yet
-                                                strongSelf.journalByteOffsets[fileIdentifier] = 0
+                                                strongSelf.stateStore.updateJournal(identifier: fileIdentifier, byteOffset: 0)
                                             }
                                             
                                             dispatchGroup.leave()
@@ -291,7 +253,8 @@ public class JournalManager: JournalManaging {
                     
                     var shouldPushLocalFile = false
                     if let remoteVersionOfLocalJournal = fetchedVersions[strongSelf.localIdentifier] {
-                        shouldPushLocalFile = strongSelf.lastLocalVersionPushed != remoteVersionOfLocalJournal
+                        let lastLocalVersionPushed = strongSelf.stateStore.lastVersionPushed(identifier: strongSelf.localIdentifier)
+                        shouldPushLocalFile = lastLocalVersionPushed != remoteVersionOfLocalJournal
                     } else {
                         shouldPushLocalFile = true
                     }
@@ -305,7 +268,7 @@ public class JournalManager: JournalManaging {
                                 switch pushResponse {
                                 case .success(let version):
                                     // Push succeeded.
-                                    strongSelf.lastLocalVersionPushed = version
+                                    strongSelf.stateStore.updateLocalJournal(identifier: strongSelf.localIdentifier, lastVersionPushed: version)
                                     
                                     doFetchRemoteFiles(fetchedVersions)
                                     
@@ -354,6 +317,8 @@ public class JournalManager: JournalManaging {
         var commands: [Command] = []
         var journalsHaveNoMoreChanges = false
         var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
+        
+        let journalByteOffsets = stateStore.allJournalByteOffsets()
         
         var fileSizes: [String : UInt64] = [:]
         journalByteOffsets.keys.forEach { identifier in
@@ -436,7 +401,7 @@ public class JournalManager: JournalManaging {
                 if success {
                     // We successfully merged the changes, so now we are safe to update byte offsets
                     journalByteOffsetsToUpdateAfterMerge.forEach { identifier, byteOffset in
-                        strongSelf.journalByteOffsets[identifier] = byteOffset
+                        strongSelf.stateStore.updateJournal(identifier: identifier, byteOffset: byteOffset)
                     }
                 } else {
                     assertionFailure("What do we even do here if merging fails? Is it even possible?")
@@ -448,7 +413,7 @@ public class JournalManager: JournalManaging {
     }
     
     public func fetchLatestCommands(skipRemoteFetch: Bool = false, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
-        if shouldSync && !skipRemoteFetch {
+        if !skipRemoteFetch {
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
@@ -457,10 +422,9 @@ public class JournalManager: JournalManaging {
                     // TODO: See if really care about the updatedFiles when we sync and try to do a fetchLatestCommandsWithoutSync()
                     _ = updatedFiles
                     
-                    strongSelf.lastSuccessfulSyncTime = Date()
                     if updatedFiles.count > 0 || strongSelf.journalByteOffsetsAtSyncStart == nil {
                         // We just sync'ed, so record all byte offsets now before we start fetching commands
-                        strongSelf.journalByteOffsetsAtSyncStart = strongSelf.journalByteOffsets
+                        strongSelf.journalByteOffsetsAtSyncStart = strongSelf.stateStore.allJournalByteOffsets()
                     }
                     
                     strongSelf.fetchLatestCommandsWithoutSync(completion: completion)
@@ -474,10 +438,14 @@ public class JournalManager: JournalManaging {
         } else {
             if journalByteOffsetsAtSyncStart == nil {
                 // We just sync'ed, so record all byte offsets now before we start fetching commands
-                journalByteOffsetsAtSyncStart = journalByteOffsets
+                journalByteOffsetsAtSyncStart = stateStore.allJournalByteOffsets()
             }
 
             fetchLatestCommandsWithoutSync(completion: completion)
         }
+    }
+    
+    public func resetSyncState() {
+        stateStore.resetSyncState()
     }
 }
