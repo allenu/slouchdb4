@@ -77,6 +77,8 @@ public class ChangeTracker {
     
     var isSyncing: Bool = false
     var isProcessing = false
+    
+    public var debugIdentifier = "unknown"
 
     public weak var delegate: ChangeTrackerDelegate?
 
@@ -220,9 +222,13 @@ public class ChangeTracker {
             
             self.isSyncing = true
 
+//            print("changeTracker \(self.debugIdentifier) calling journalManager.fetchLatestCommands")
+            
             self.journalManager.fetchLatestCommands(skipRemoteFetch: skipRemoteFetch,
                                                     completion: { [weak self] response, callbackWhenCommandsMerged in
                 guard let strongSelf = self else { return }
+                                                        
+//                                                        print("changeTracker \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
                 
                 switch response {
                 case .success(let type):

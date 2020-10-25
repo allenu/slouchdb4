@@ -112,6 +112,8 @@ public class JournalManager: JournalManaging {
     // track progress as we process commands.
     var journalByteOffsetsAtSyncStart: [String : UInt64]?
 
+    public var debugIdentifier = "unknown"
+    
     public init(stateStore: JournalManagerStateStoring,
                 journalFileManager: JournalFileManaging) {
         self.stateStore = stateStore
@@ -165,13 +167,17 @@ public class JournalManager: JournalManaging {
             let knownRemoteFileVersions: [String : String] = strongSelf.stateStore.allRemoteFileVersions()
             
             // Fetch all those files that differ from local version
+//            print("journal manager \(strongSelf.debugIdentifier) - findNewerRemoteFiles()")
             let filesToFetch = findNewerRemoteFiles(excludedFiles: strongSelf.stateStore.allLocalIdentifiers(),
                                                     localFileVersions: knownRemoteFileVersions,
                                                     remoteFileVersions: fetchedVersions)
             
+//            print("journal manager \(strongSelf.debugIdentifier) - findNewerRemoteFiles() done with \(filesToFetch.count) count")
+            
 //            print("syncFiles fetching \(filesToFetch)")
             
             if filesToFetch.count > 0 {
+//                print("journal manager \(strongSelf.debugIdentifier) - fetchFiles on \(filesToFetch)")
                 remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
                     guard let strongSelf = self else { return }
                     
@@ -187,6 +193,8 @@ public class JournalManager: JournalManaging {
                             
                             let dispatchGroup = DispatchGroup()
                             
+//                            print("journal manager \(strongSelf.debugIdentifier) - about file replace \(filesAndVersions.count) files")
+
                             filesAndVersions.forEach { fileAndVersion in
                                 let remoteFileUrl = fileAndVersion.url
                                 let fileIdentifier = remoteFileUrl.lastPathComponent.replacingOccurrences(of: ".journal", with: "")
@@ -214,12 +222,16 @@ public class JournalManager: JournalManaging {
                             }
                             
                             // Wait for all journal replacement requests to finish before calling completion
+//                            print("journal manager \(strongSelf.debugIdentifier) - waiting on file replace...")
                             dispatchGroup.notify(queue: .main) {
+//                                print("journal manager \(strongSelf.debugIdentifier) - DONE file replace...")
                                 completion(.success(updatedFiles: updatedFiles))
                             }
                         }
                         
                     case .failure(let reason):
+//                        print("journal manager \(strongSelf.debugIdentifier) - failure to sync \(reason)")
+                        
                         let fetchRemoteFilesFailedReason: SyncFilesFailureReason
                         switch reason {
                             // TODO: convert reason to a SyncFilesFailureReason type
@@ -234,6 +246,8 @@ public class JournalManager: JournalManaging {
                 }
             } else {
                 // No files to sync!
+//                print("journal manager \(strongSelf.debugIdentifier) - no files to fetch")
+
                 DispatchQueue.main.async {
                     // No results
                     // TODO: have .successNoChange ?
@@ -246,7 +260,7 @@ public class JournalManager: JournalManaging {
             remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
                 guard let strongSelf = self else { return }
                 
-                print("fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
+//                print("deck \(strongSelf.debugIdentifier) fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
                 
                 switch fetchedRemoteFileVersionsResponse {
                 case .success(let fetchedVersions):
@@ -314,6 +328,8 @@ public class JournalManager: JournalManaging {
         // Go through journals getting up to maxCommands until there are no more changes
         // or we reach maxCommands.
         
+//        print("journalManager \(debugIdentifier) fetchLatestCommandsWithoutSync called")
+        
         var commands: [Command] = []
         var journalsHaveNoMoreChanges = false
         var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
@@ -329,6 +345,8 @@ public class JournalManager: JournalManaging {
         
         while !journalsHaveNoMoreChanges {
             // Find a journal that has changes and consume as much as possible
+            
+//            print("journalManager \(debugIdentifier) while !journalsHaveNoMoreChanges begin")
             
             var loadedJournalChanges = false
             journalByteOffsets.forEach { identifier, byteOffset in
@@ -362,6 +380,8 @@ public class JournalManager: JournalManaging {
             }
             
             journalsHaveNoMoreChanges = !loadedJournalChanges
+            
+//            print("journalManager \(debugIdentifier) while !journalsHaveNoMoreChanges end: \(journalsHaveNoMoreChanges)")
         }
         
         // Compute our progress so far
