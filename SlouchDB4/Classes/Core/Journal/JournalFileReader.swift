@@ -40,7 +40,13 @@ public class JournalFileReader: JournalReadable {
     }
     
     public func readNextCommands(byteOffset: UInt64, maxCommands: Int) -> JournalReadResult {
+//        print("readNextCommands \(self.url.path) -- byteOffset: \(byteOffset)")
+        
+        let startingOffset = byteOffset
+        
         if self.byteOffset != byteOffset {
+//            print("seeking to byteOffset")
+            
             // Seek to that position
             var seekSucceeded = false
             do {
@@ -69,6 +75,7 @@ public class JournalFileReader: JournalReadable {
                 if let fileData = self.fileData {
                     // See if we're low on data. If so, fetch to fill up our chunk with more.
                     if fileData.count < JournalFileReader.lowBufferSize {
+//                        print("low on data... reading \(JournalFileReader.readBufferSize) bytes")
                         let newData = self.fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
                         
                         if newData.count == 0 {
@@ -101,6 +108,13 @@ public class JournalFileReader: JournalReadable {
         var encounteredEndOfFile: Bool = false
         
         readChunksIfNeeded()
+        
+        // Special case: Before we process the data, we need to make sure we are not pointing to a bad
+        // data location. Due to a bug in the past
+        
+        var readingFirstLine = true
+        
+        
         while let fileData = self.fileData, !encounteredEndOfFile && commands.count < maxCommands {
             if fileData.count == 0 {
                 encounteredEndOfFile = true
@@ -112,6 +126,9 @@ public class JournalFileReader: JournalReadable {
                 
                 let jsonCommandData = fileData.prefix(newlineIndex)
                 
+                let str = String(data: jsonCommandData, encoding: .utf8)
+//                print("read jsonCommandData \(str!)")
+                
                 // Copy remaining bytes into new buffer. Need to do this since firstIndex() above doesn't
                 // take into account subsequences from firstIndex/dropFirst operations and so messes up
                 // indexing.
@@ -121,8 +138,8 @@ public class JournalFileReader: JournalReadable {
                     self.fileData = Data(bytes: bytes, count: newBufferSize)
                 })
                 
-                // Update byte offset
-                self.byteOffset = self.byteOffset + UInt64(newlineIndex + 1) // Include newline in total bytes processed for this line
+                
+                let successfullyProcessedLine: Bool
                 
                 if jsonCommandData.count > 0 {
 //                    let str = String(data: jsonCommandData, encoding: .utf8)!
@@ -139,13 +156,91 @@ public class JournalFileReader: JournalReadable {
                             // No more data
                             encounteredEndOfFile = true
                         }
+                        
+                        successfullyProcessedLine = true
                     } else {
-                        // Can't process JSON, assume EOF. Future proofing as well: if we get here,
-                        // we may be processing new commands that do not match the Command style.
-                        assertionFailure()
-                        encounteredEndOfFile = true
+                        // Unable to read that line as a valid command JSON... Two things could go wrong:
+                        // 1. we read a JSON fragment. This can happen due to a known bug in earlier SlouchDB journal readers
+                        //    where they could stop reading in the middle of a JSON line and leave the file byte offset
+                        //    pointer there. Next time we pick up reading, we'd pick up in the middle of valid JSON and
+                        //    not know what to do. The code below in "readingFirstLine" block fixes it.
+                        // 2. We read valid JSON but the Command type doesn't match what we expect. This can happen if
+                        //    we updated Command's schema and this version of SlouchDB doesn't know what to do with it.
+                        //    In such a case, give up b/c we have no hope of processing those commands.
+                        
+                        if readingFirstLine {
+                            // This may be a json *fragment*. It is possible to get into this state with older
+                            // versions of SlouchDB4. It can happen when we are reading and
+                            // So, as a hack we will re-set the byteOffset to a known good location by
+                            // reading bytes backwards until we reach a 0x0a char. We'll then re-set fileData to
+                            // nil to force a re-read of data from that point instead.
+                            
+                            // Manually read data backwards one char at a time until we read 0x0a,
+                            // or reach 4k behind us or hit the 0 byte offset, whichever comes first
+                            let seekBackLimit: UInt64 = 4096
+                            let seekBackByteOffsetThreshold = max(0, startingOffset - seekBackLimit)
+                            let seekBackBufferSize: UInt64 = startingOffset - seekBackByteOffsetThreshold
+                            
+                            if seekBackBufferSize > 0 {
+                                // Seek to the offset and read a buffer of that data
+                                fileHandle.seek(toFileOffset: seekBackByteOffsetThreshold)
+                                let seekBackBuffer = fileHandle.readData(ofLength: Int(seekBackBufferSize))
+                                
+                                if seekBackBuffer.count > 0 {
+                                    // Read a single byte -- NOTE: this is kind of hacky because if .journal is non ASCII
+                                    // data, we might read 0x0a as part of a longer UTF char. However, the top-level journal
+                                    // file is ASCII and the inner commands have contents that are base64 encoded, so we will
+                                    // never have that problem.
+                                    
+                                    if let lastNewlineCharIndex = seekBackBuffer.lastIndex(of: 0x0a) {
+                                        // Yes! We found the first newline char behind us. Re-set the byteOffset
+                                        // to point to the first char *after* this on the next loop. Also
+                                        // re-set the file seek position to this
+                                        
+                                        // This the number of characters from the starting offset to the newline
+                                        // char.
+                                        let deltaToNewline: UInt64 = seekBackBufferSize - UInt64(lastNewlineCharIndex)
+
+                                        // The new byte offset should be adjusted to point to that, then ADD ONE to
+                                        // move to the character following it.
+                                        let newOffset: UInt64 = startingOffset - deltaToNewline + 1
+
+                                        // We MUST seek to this position so that the next read chunk routine
+                                        // can start at the correct location.
+                                        fileHandle.seek(toFileOffset: newOffset)
+                                        // Also need to re-set the EOF state because we're re-reading a chunk of data
+                                        self.fileDataEOF = false
+                                        
+                                        self.byteOffset = newOffset
+                                        self.fileData = nil // This will force a re-read of the byte data at the new offset
+                                    } else {
+                                        // Unfortunately we could not find a newline char in the seekback buffer.
+                                        // We need to quit as we can't recover from this.
+                                        assertionFailure()
+                                        encounteredEndOfFile = true
+                                    }
+                                } else {
+                                    // Couldn't read any data for some reason. Unrecoverable. Quit.
+                                    assertionFailure()
+                                    encounteredEndOfFile = true
+                                }
+                            } else {
+                                // Nothing to seek back to! We have to give up then.
+                                encounteredEndOfFile = true
+                                assertionFailure()
+                            }
+                        } else {
+                            // Can't process JSON, assume EOF. Future proofing as well: if we get here,
+                            // we may be processing new commands that do not match the Command style.
+//                            print("Cannot understand \(jsonCommandData.base64EncodedString())")
+                            encounteredEndOfFile = true
+                            assertionFailure()
+                        }
+                        successfullyProcessedLine = false
                     }
                 } else {
+//                    print("No data on this line")
+                    
                     // Data is empty, so ignore this line...
                     if let remainingData = self.fileData {
                         encounteredEndOfFile = remainingData.count == 0
@@ -153,10 +248,22 @@ public class JournalFileReader: JournalReadable {
                         // No more data
                         encounteredEndOfFile = true
                     }
+                    
+                    successfullyProcessedLine = true
+                }
+                readingFirstLine = false
+                
+                // Only increment the byteOffset pointer if this was a valid line that we understood.
+                // Otherwise, it's possible to read a fragment of JSON if a write is in process from
+                // another thread/process, and then the next time we try processing this journal, we
+                // start at a bad offset.
+                if successfullyProcessedLine {
+                    // Update byte offset
+                    self.byteOffset = self.byteOffset + UInt64(newlineIndex + 1) // Include newline in total bytes processed for this line
                 }
             } else {
                 // Can't process buffer. May need to read more chunks.
-                print("Couldn't process. May need more chunks")
+//                print("Couldn't process. May need more chunks")
             }
 
             readChunksIfNeeded()
