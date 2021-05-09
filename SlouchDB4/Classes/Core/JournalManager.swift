@@ -434,6 +434,7 @@ public class JournalManager: JournalManaging {
     
     public func fetchLatestCommands(skipRemoteFetch: Bool = false, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
         if !skipRemoteFetch {
+//            print("!skipRemoteFetch")
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
@@ -456,6 +457,7 @@ public class JournalManager: JournalManaging {
                 }
             })
         } else {
+//            print("skipRemoteFetch")
             if journalByteOffsetsAtSyncStart == nil {
                 // We just sync'ed, so record all byte offsets now before we start fetching commands
                 journalByteOffsetsAtSyncStart = stateStore.allJournalByteOffsets()
