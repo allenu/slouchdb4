@@ -69,13 +69,13 @@ public class JournalFileReader: JournalReadable {
             }
         }
         
-        let readChunksIfNeeded = {
+        let readChunksIfNeeded: (Bool) -> Void = { growIfNeeded in
             // Read to fill up to 16k. Only read if on the low end.
             if !self.fileDataEOF {
                 if let fileData = self.fileData {
                     // See if we're low on data. If so, fetch to fill up our chunk with more.
-                    if fileData.count < JournalFileReader.lowBufferSize {
-//                        print("low on data... reading \(JournalFileReader.readBufferSize) bytes")
+                    if growIfNeeded || fileData.count < JournalFileReader.lowBufferSize {
+//                        print("low on data or growIfNeeded true (\(growIfNeeded))... reading \(JournalFileReader.readBufferSize) bytes")
                         let newData = self.fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
                         
                         if newData.count == 0 {
@@ -107,13 +107,13 @@ public class JournalFileReader: JournalReadable {
 
         var encounteredEndOfFile: Bool = false
         
-        readChunksIfNeeded()
+        readChunksIfNeeded(false)
         
         // Special case: Before we process the data, we need to make sure we are not pointing to a bad
         // data location. Due to a bug in the past
         
         var readingFirstLine = true
-        
+        var numChunksWithoutNewline: Int = 0
         
         while let fileData = self.fileData, !encounteredEndOfFile && commands.count < maxCommands {
             if fileData.count == 0 {
@@ -123,6 +123,8 @@ public class JournalFileReader: JournalReadable {
             
             if let newlineIndex = fileData.firstIndex(of: 0x0a) {
                 assert(newlineIndex < fileData.count)
+                
+                numChunksWithoutNewline = 0
                 
                 let jsonCommandData = fileData.prefix(newlineIndex)
                 
@@ -264,9 +266,12 @@ public class JournalFileReader: JournalReadable {
             } else {
                 // Can't process buffer. May need to read more chunks.
 //                print("Couldn't process. May need more chunks")
+                numChunksWithoutNewline = numChunksWithoutNewline + 1
             }
 
-            readChunksIfNeeded()
+            // If more than one chunk encountered without data, grow out as needed
+            let growIfNeeded = numChunksWithoutNewline >= 2
+            readChunksIfNeeded(growIfNeeded)
         }
         
         // No more data, so return what we have

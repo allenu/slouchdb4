@@ -244,7 +244,7 @@ public class ChangeTracker {
                                                     completion: { [weak self] response, callbackWhenCommandsMerged in
                 guard let strongSelf = self else { return }
                                                         
-//                                                        print("sync \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
+//                print("changeTracker \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
                 
                 switch response {
                 case .success(let type):
