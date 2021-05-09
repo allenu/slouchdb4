@@ -1,4 +1,17 @@
 
+
+- [ ] Add versioned commands. If there are two nodes in the system, where one node has a newer version of the "command list"
+      used for journal playback, if that newer node adds a command to the journal and an older node plays it back, it won't
+      know what to do with the command. SlouchDB should really do two things:
+      1. add a min version number to each command
+      2. when a command that is beyond the current version is encountered, record the index or timestamp of the command
+
+      Next time there is a version upgrade, go back and re-play from the point of the timestamp so that we have a consistent
+      data state which includes all the commands.
+
+      Today, if a command is encountered that iis unrecognized, SlouchDB will just skip it and move onto the next one. This
+      may lead to data integrity issues since there will be a "hole" in the history.
+
 - [ ] SlouchDB changes
     - [ ] Consider making the local journal just the same as remote journals when processing. Don't have append()
           ask if it's local or remote. Instead, just add it to the appropriate journal file and keep a byte offset

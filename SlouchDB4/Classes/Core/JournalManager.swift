@@ -167,21 +167,21 @@ public class JournalManager: JournalManaging {
             let knownRemoteFileVersions: [String : String] = strongSelf.stateStore.allRemoteFileVersions()
             
             // Fetch all those files that differ from local version
-//            print("journal manager \(strongSelf.debugIdentifier) - findNewerRemoteFiles()")
+//            print("sync \(strongSelf.debugIdentifier) - findNewerRemoteFiles()")
             let filesToFetch = findNewerRemoteFiles(excludedFiles: strongSelf.stateStore.allLocalIdentifiers(),
                                                     localFileVersions: knownRemoteFileVersions,
                                                     remoteFileVersions: fetchedVersions)
             
-//            print("journal manager \(strongSelf.debugIdentifier) - findNewerRemoteFiles() done with \(filesToFetch.count) count")
+//            print("sync \(strongSelf.debugIdentifier) - findNewerRemoteFiles() done with \(filesToFetch.count) count")
             
 //            print("syncFiles fetching \(filesToFetch)")
             
             if filesToFetch.count > 0 {
-//                print("journal manager \(strongSelf.debugIdentifier) - fetchFiles on \(filesToFetch)")
+//                print("sync \(strongSelf.debugIdentifier) - fetchFiles on \(filesToFetch)")
                 remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
                     guard let strongSelf = self else { return }
                     
-//                    print("fetched result: \(response)")
+//                    print("sync \(strongSelf.debugIdentifier) - fetched result: \(response)")
                     
                     switch response {
                     case .success(let filesAndVersions):
@@ -260,7 +260,7 @@ public class JournalManager: JournalManaging {
             remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
                 guard let strongSelf = self else { return }
                 
-//                print("deck \(strongSelf.debugIdentifier) fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
+//                print("sync \(strongSelf.debugIdentifier) fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
                 
                 switch fetchedRemoteFileVersionsResponse {
                 case .success(let fetchedVersions):

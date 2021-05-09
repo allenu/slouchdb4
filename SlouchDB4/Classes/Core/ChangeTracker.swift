@@ -129,14 +129,17 @@ public class ChangeTracker {
     // it to depend on the execution order.
     public func append(command: Command, isRemote: Bool = false, completion: CompletionBlock? = nil) {
         queue.async {
-            if let completion = completion {
-                self.unprocessedCompletions.append(completion)
-            }
+//            if let completion = completion {
+            // Must have a completion in the list to make unprocessedCompletions and unprocessedCommands the same size
+            let emptyCompletion: CompletionBlock = {}
+            self.unprocessedCompletions.append(completion ?? emptyCompletion)
             if !isRemote {
                 self.journalManager.addToLocalJournal(command: command)
             }
             self.unprocessedCommands.append(command)
             self.startProcessingIfNeeded()
+            
+            assert(self.unprocessedCommands.count == self.unprocessedCompletions.count)
         }
     }
     
@@ -187,12 +190,23 @@ public class ChangeTracker {
             
             self.isProcessing = true
             
-            // Put things in object tracker and clear unprocessed queue
-            self.objectHistoryTracker.enqueue(commands: self.unprocessedCommands)
-            self.currentCommandCompletions = self.unprocessedCompletions
             
-            self.unprocessedCompletions = []
-            self.unprocessedCommands = []
+            // TODO: Is this right? Force only processing up to 100 commands at a time to avoid starving other ChangeTracker
+            // tasks.
+            let maxProcessedCommands = 100
+            
+            let commandsToProcess = Array(self.unprocessedCommands.prefix(maxProcessedCommands))
+            let completionsToProcess = Array(self.unprocessedCompletions.prefix(maxProcessedCommands))
+
+            // Put things in object tracker and clear unprocessed queue
+            self.objectHistoryTracker.enqueue(commands: commandsToProcess)
+            self.currentCommandCompletions = completionsToProcess
+            
+            self.unprocessedCommands.removeFirst(commandsToProcess.count)
+            self.unprocessedCompletions.removeFirst(completionsToProcess.count)
+
+            // These must always be the same size
+            assert(self.unprocessedCommands.count == self.unprocessedCompletions.count)
             
             // And then process them
             self.objectHistoryTracker.process(commandExecutor: self, completion: { [weak self] in
@@ -200,6 +214,8 @@ public class ChangeTracker {
                     
                     // Call completions for all commands that were just processed
                     DispatchQueue.main.async {
+//                        let count = self?.currentCommandCompletions.count ?? 0
+//                        print("calling \(count) currentCommandCompletions")
                         self?.currentCommandCompletions.forEach { individualCompletion in
                             individualCompletion()
                         }
@@ -222,13 +238,13 @@ public class ChangeTracker {
             
             self.isSyncing = true
 
-//            print("changeTracker \(self.debugIdentifier) calling journalManager.fetchLatestCommands")
+            // print("sync \(self.debugIdentifier) - calling journalManager.fetchLatestCommands")
             
             self.journalManager.fetchLatestCommands(skipRemoteFetch: skipRemoteFetch,
                                                     completion: { [weak self] response, callbackWhenCommandsMerged in
                 guard let strongSelf = self else { return }
                                                         
-//                                                        print("changeTracker \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
+//                                                        print("sync \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
                 
                 switch response {
                 case .success(let type):
