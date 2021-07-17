@@ -50,6 +50,16 @@ public protocol JournalManaging {
 
 public protocol ChangeTrackerDelegate: class {
     func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition, completion: @escaping (Bool) -> Void)
+    
+    // For logging
+    func didStartFetchLatestCommands(for changeTracker: ChangeTracker)
+    func changeTracker(_ changeTracker: ChangeTracker, didFetchLatestCommandsWithResponse: FetchJournalCommandsResponse)
+
+    func changeTracker(_ changeTracker: ChangeTracker, didStartAppendCommands commands: [Command])
+    func didFinishAppendCommands(_ changeTracker: ChangeTracker)
+
+    func didStartProcessCommands(for changeTracker: ChangeTracker)
+    func didEndProcessCommands(for changeTracker: ChangeTracker)
 }
 
 // ChangeTracker does the following:
@@ -209,8 +219,13 @@ public class ChangeTracker {
             assert(self.unprocessedCommands.count == self.unprocessedCompletions.count)
             
             // And then process them
+            self.delegate?.didStartProcessCommands(for: self)
+            
             self.objectHistoryTracker.process(commandExecutor: self, completion: { [weak self] in
                 self?.queue.async {
+                    
+                    guard let strongSelf = self else { return }
+                    strongSelf.delegate?.didEndProcessCommands(for: strongSelf)
                     
                     // Call completions for all commands that were just processed
                     DispatchQueue.main.async {
@@ -220,11 +235,16 @@ public class ChangeTracker {
                             individualCompletion()
                         }
                         self?.currentCommandCompletions = []
+                        
+                        // Leave processing state, but then try processing more, if needed
+                        // NOTE: This must be dispatched after the currentCommandCompletions above are processed.
+                        self?.queue.async {
+                            self?.isProcessing = false
+                            DispatchQueue.main.async {
+                                self?.startProcessingIfNeeded()
+                            }
+                        }
                     }
-                    
-                    // Leave processing state, but then try processing more, if needed
-                    self?.isProcessing = false
-                    self?.startProcessingIfNeeded()
                 }
             })
         }
@@ -240,9 +260,13 @@ public class ChangeTracker {
 
             // print("sync \(self.debugIdentifier) - calling journalManager.fetchLatestCommands")
             
+            self.delegate?.didStartFetchLatestCommands(for: self)
+            
             self.journalManager.fetchLatestCommands(skipRemoteFetch: skipRemoteFetch,
                                                     completion: { [weak self] response, callbackWhenCommandsMerged in
                 guard let strongSelf = self else { return }
+                                                        
+                strongSelf.delegate?.changeTracker(strongSelf, didFetchLatestCommandsWithResponse: response)
                                                         
 //                print("changeTracker \(strongSelf.debugIdentifier) fetchLatestCommands => \(response)")
                 
@@ -250,7 +274,12 @@ public class ChangeTracker {
                 case .success(let type):
                     switch type {
                     case .partialResults(let commands, let percent):
+                        strongSelf.delegate?.changeTracker(strongSelf, didStartAppendCommands: commands)
+                        
                         strongSelf.append(contentsOf: commands, isRemote: true, completion: {
+                            
+                            strongSelf.delegate?.didFinishAppendCommands(strongSelf)
+                            
                             callbackWhenCommandsMerged?(true)
                             // Tell client of ChangeTracker that we have partial results ready.
                             partialResults(percent)
@@ -264,7 +293,11 @@ public class ChangeTracker {
                         })
                         
                     case .results(let commands):
+                        strongSelf.delegate?.changeTracker(strongSelf, didStartAppendCommands: commands)
+
                         strongSelf.append(contentsOf: commands, isRemote: true, completion: {
+                            strongSelf.delegate?.didFinishAppendCommands(strongSelf)
+
                             callbackWhenCommandsMerged?(true)
                             
                             self?.isSyncing = false

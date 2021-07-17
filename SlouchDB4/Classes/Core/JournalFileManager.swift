@@ -234,21 +234,25 @@ public class JournalFileManager: JournalFileManaging {
     }
     
     public func replaceRemoteJournalFile(identifier: String, with url: URL, completion: @escaping () -> Void) {
-        DispatchQueue.global(qos: .background).async {
-            
-            // Before deleting file, re-open the read stream by removing it. It'll get re-opened on next read.
+        // Before deleting file, re-open the read stream by removing it. It'll get re-opened on next read.
+
+        // Do this in main queue to ensure data is never accessed by more than one thread
+        DispatchQueue.main.async {
             if let existingRemoteReader = self.remoteReaders[identifier] {
                 // existingRemoteReader.close()
                 self.remoteReaders.removeValue(forKey: identifier)
             }
 
-            let destinationUrl = self.workingFolderUrl.appendingPathComponent("remotes/\(identifier).journal")
-            if FileManager.default.fileExists(atPath: destinationUrl.path) {
-                try! FileManager.default.removeItem(at: destinationUrl)
+            // Do actual file deletion work in background queue as it can be slow
+            DispatchQueue.global(qos: .background).async {
+                let destinationUrl = self.workingFolderUrl.appendingPathComponent("remotes/\(identifier).journal")
+                if FileManager.default.fileExists(atPath: destinationUrl.path) {
+                    try! FileManager.default.removeItem(at: destinationUrl)
+                }
+                try! FileManager.default.copyItem(at: url, to: destinationUrl)
+                
+                completion()
             }
-            try! FileManager.default.copyItem(at: url, to: destinationUrl)
-            
-            completion()
         }
     }
     

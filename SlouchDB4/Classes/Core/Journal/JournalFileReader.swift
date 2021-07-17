@@ -45,7 +45,7 @@ public class JournalFileReader: JournalReadable {
         let startingOffset = byteOffset
         
         if self.byteOffset != byteOffset {
-//            print("seeking to byteOffset")
+//            print("seeking to byteOffset \(byteOffset)")
             
             // Seek to that position
             var seekSucceeded = false
@@ -75,7 +75,7 @@ public class JournalFileReader: JournalReadable {
                 if let fileData = self.fileData {
                     // See if we're low on data. If so, fetch to fill up our chunk with more.
                     if growIfNeeded || fileData.count < JournalFileReader.lowBufferSize {
-//                        print("low on data or growIfNeeded true (\(growIfNeeded))... reading \(JournalFileReader.readBufferSize) bytes")
+//                        print("\(self.url.path) low on data or growIfNeeded true (\(growIfNeeded))... reading \(JournalFileReader.readBufferSize) bytes")
                         let newData = self.fileHandle.readData(ofLength: JournalFileReader.readBufferSize)
                         
                         if newData.count == 0 {
@@ -87,6 +87,7 @@ public class JournalFileReader: JournalReadable {
                         self.fileData?.append(newData)
                     } else {
                         // Good enough size...
+//                        print("\(self.url.path) good enough size. not reading more. \(fileData.count)")
                     }
                 } else {
                     // If fileData is nil, means no data yet, so load it initially
@@ -117,12 +118,15 @@ public class JournalFileReader: JournalReadable {
         
         while let fileData = self.fileData, !encounteredEndOfFile && commands.count < maxCommands {
             if fileData.count == 0 {
+//                print("\(self.url.path) fileData.count == 0")
                 encounteredEndOfFile = true
                 break
             }
             
             if let newlineIndex = fileData.firstIndex(of: 0x0a) {
                 assert(newlineIndex < fileData.count)
+                
+//                print("\(self.url.path) processing newline")
                 
                 numChunksWithoutNewline = 0
                 
@@ -241,7 +245,7 @@ public class JournalFileReader: JournalReadable {
                         successfullyProcessedLine = false
                     }
                 } else {
-//                    print("No data on this line")
+//                    print("\(self.url.path) no data on this line")
                     
                     // Data is empty, so ignore this line...
                     if let remainingData = self.fileData {
@@ -265,7 +269,7 @@ public class JournalFileReader: JournalReadable {
                 }
             } else {
                 // Can't process buffer. May need to read more chunks.
-//                print("Couldn't process. May need more chunks")
+//                print("\(self.url.path) Couldn't process. May need more chunks")
                 numChunksWithoutNewline = numChunksWithoutNewline + 1
             }
 
