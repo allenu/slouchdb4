@@ -240,9 +240,7 @@ public class ChangeTracker {
                         // NOTE: This must be dispatched after the currentCommandCompletions above are processed.
                         self?.queue.async {
                             self?.isProcessing = false
-                            DispatchQueue.main.async {
-                                self?.startProcessingIfNeeded()
-                            }
+                            self?.startProcessingIfNeeded()
                         }
                     }
                 }
