@@ -145,15 +145,40 @@ public class ObjectHistoryTracker {
                     switch objectHistoryState.processingState {
                     case .fastForward(let nextCommandIndex):
                         
-                        let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
-                        if justNewCommands.count > 0 {
+                        let hasNewCommands = objectHistoryState.commands.count > nextCommandIndex
+                        if hasNewCommands {
+                            let justNewCommands = Array(objectHistoryState.commands.dropFirst(nextCommandIndex))
+                            if justNewCommands.count > 0 {
+                                dispatchGroup.enter()
+                                commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition, completion: { success in
+                                    
+                                    if success {
+                                        objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
+                                        self.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
+
+                                        self.objectHistoryStore.removePendingUpdate(for: identifier)
+                                    } else {
+                                        // Incomplete set of commands, so keep in the store and hope that we sync newer info
+                                        // that will make it complete later
+                                    }
+                                    dispatchGroup.leave()
+                                })
+                            }
+                        } else {
+                            // 2021-10-11 BUGFIX: Even if there are no new commands, remove the pending update so we don't waste time
+                            // trying to process it again.
+                            self.objectHistoryStore.removePendingUpdate(for: identifier)
+                        }
+                        
+                    case .replay:
+                        if objectHistoryState.commands.count > 0 {
                             dispatchGroup.enter()
-                            commandExecutor.execute(commands: justNewCommands, for: identifier, startingAt: .currentPosition, completion: { success in
+                            
+                            commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start, completion: { success in
                                 
                                 if success {
                                     objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
                                     self.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
-
                                     self.objectHistoryStore.removePendingUpdate(for: identifier)
                                 } else {
                                     // Incomplete set of commands, so keep in the store and hope that we sync newer info
@@ -161,25 +186,10 @@ public class ObjectHistoryTracker {
                                 }
                                 dispatchGroup.leave()
                             })
+                        } else {
+                            // No commands to play back, so remove the pending updates marker
+                            self.objectHistoryStore.removePendingUpdate(for: identifier)
                         }
-                        
-                    case .replay:
-                        assert(objectHistoryState.commands.count > 0)
-                        dispatchGroup.enter()
-                        commandExecutor.execute(commands: objectHistoryState.commands, for: identifier, startingAt: .start, completion: { success in
-                            
-                            if success {
-                                objectHistoryState.processingState = .fastForward(nextCommandIndex: objectHistoryState.commands.count)
-                                self.objectHistoryStore.update(objectHistoryState: objectHistoryState, for: identifier)
-                                self.objectHistoryStore.removePendingUpdate(for: identifier)
-                            } else {
-                                // Incomplete set of commands, so keep in the store and hope that we sync newer info
-                                // that will make it complete later
-                            }
-                            dispatchGroup.leave()
-                        })
-                        
-
                     }
                 } else {
                     Swift.print("Could not find object history state for object \(identifier)")
