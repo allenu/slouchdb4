@@ -167,21 +167,13 @@ public class JournalManager: JournalManaging {
             let knownRemoteFileVersions: [String : String] = strongSelf.stateStore.allRemoteFileVersions()
             
             // Fetch all those files that differ from local version
-//            print("sync \(strongSelf.debugIdentifier) - findNewerRemoteFiles()")
             let filesToFetch = findNewerRemoteFiles(excludedFiles: strongSelf.stateStore.allLocalIdentifiers(),
                                                     localFileVersions: knownRemoteFileVersions,
                                                     remoteFileVersions: fetchedVersions)
             
-//            print("sync \(strongSelf.debugIdentifier) - findNewerRemoteFiles() done with \(filesToFetch.count) count")
-            
-//            print("syncFiles fetching \(filesToFetch)")
-            
             if filesToFetch.count > 0 {
-//                print("sync \(strongSelf.debugIdentifier) - fetchFiles on \(filesToFetch)")
                 remoteFileStore.fetchFiles(identifiers: filesToFetch) { [weak self] response in
                     guard let strongSelf = self else { return }
-                    
-//                    print("sync \(strongSelf.debugIdentifier) - fetched result: \(response)")
                     
                     switch response {
                     case .success(let filesAndVersions):
@@ -192,8 +184,6 @@ public class JournalManager: JournalManaging {
                             let updatedFiles: [String] = filesAndVersions.map { $0.url.lastPathComponent }
                             
                             let dispatchGroup = DispatchGroup()
-                            
-//                            print("journal manager \(strongSelf.debugIdentifier) - about file replace \(filesAndVersions.count) files")
 
                             filesAndVersions.forEach { fileAndVersion in
                                 let remoteFileUrl = fileAndVersion.url
@@ -207,8 +197,6 @@ public class JournalManager: JournalManaging {
                                     .journalFileManager
                                     .replaceRemoteJournalFile(identifier: fileIdentifier, with: remoteFileUrl, completion: {
                                         
-//                                        print("replaced file \(fileIdentifier) with \(remoteFileUrl)")
-
                                         DispatchQueue.main.async {
                                             // Add journal readers for each journal that we're missing
                                             if strongSelf.stateStore.journalByteOffset(identifier: fileIdentifier) == nil {
@@ -222,16 +210,12 @@ public class JournalManager: JournalManaging {
                             }
                             
                             // Wait for all journal replacement requests to finish before calling completion
-//                            print("journal manager \(strongSelf.debugIdentifier) - waiting on file replace...")
                             dispatchGroup.notify(queue: .main) {
-//                                print("journal manager \(strongSelf.debugIdentifier) - DONE file replace...")
                                 completion(.success(updatedFiles: updatedFiles))
                             }
                         }
                         
                     case .failure(let reason):
-//                        print("journal manager \(strongSelf.debugIdentifier) - failure to sync \(reason)")
-                        
                         let fetchRemoteFilesFailedReason: SyncFilesFailureReason
                         switch reason {
                             // TODO: convert reason to a SyncFilesFailureReason type
@@ -246,7 +230,6 @@ public class JournalManager: JournalManaging {
                 }
             } else {
                 // No files to sync!
-//                print("journal manager \(strongSelf.debugIdentifier) - no files to fetch")
 
                 DispatchQueue.main.async {
                     // No results
@@ -259,8 +242,6 @@ public class JournalManager: JournalManaging {
         DispatchQueue.global(qos: .background).async {
             remoteFileStore.fetchRemoteFileVersions(completionHandler: { [weak self] fetchedRemoteFileVersionsResponse in
                 guard let strongSelf = self else { return }
-                
-//                print("sync \(strongSelf.debugIdentifier) fetchedRemoteFileVersions: \(fetchedRemoteFileVersionsResponse)")
                 
                 switch fetchedRemoteFileVersionsResponse {
                 case .success(let fetchedVersions):
@@ -289,7 +270,14 @@ public class JournalManager: JournalManaging {
                                 case .failure(let reason):
                                     // TODO: Convert reason to a more specific sync files failure reason
                                     _ = reason
-                                    completion(.failure(reason: .pushFailed))
+                                    
+                                    // TODO: Bubble up the upload error to the user. To avoid blocking the upload, we will
+                                    // just go ahead with the rest of the steps for now.
+                                    // Old code:
+                                    // completion(.failure(reason: .pushFailed))
+                                    
+                                    // New code: just go onto the next step.
+                                    doFetchRemoteFiles(fetchedVersions)
                                 }
                             }
                         } else {
@@ -328,8 +316,6 @@ public class JournalManager: JournalManaging {
         // Go through journals getting up to maxCommands until there are no more changes
         // or we reach maxCommands.
         
-//        print("journalManager \(debugIdentifier) fetchLatestCommandsWithoutSync called")
-        
         var commands: [Command] = []
         var journalsHaveNoMoreChanges = false
         var journalByteOffsetsToUpdateAfterMerge: [String : UInt64] = [:]
@@ -345,8 +331,6 @@ public class JournalManager: JournalManaging {
         
         while !journalsHaveNoMoreChanges {
             // Find a journal that has changes and consume as much as possible
-            
-//            print("journalManager \(debugIdentifier) while !journalsHaveNoMoreChanges begin")
             
             var loadedJournalChanges = false
             journalByteOffsets.forEach { identifier, byteOffset in
@@ -366,8 +350,6 @@ public class JournalManager: JournalManaging {
                                                                            byteOffset: updatedByteOffset,
                                                                            maxCommands: maxCommandsAttemptToFetch)
                     
-//                    print("readNextCommands from: \(identifier) byteOffset: \(updatedByteOffset) => \(readResult.commands.count) commands  \(readResult.byteOffset) offset")
-                    
                     if readResult.commands.count > 0 {
                         commands.append(contentsOf: readResult.commands)
                         loadedJournalChanges = true
@@ -380,8 +362,6 @@ public class JournalManager: JournalManaging {
             }
             
             journalsHaveNoMoreChanges = !loadedJournalChanges
-            
-//            print("journalManager \(debugIdentifier) while !journalsHaveNoMoreChanges end: \(journalsHaveNoMoreChanges)")
         }
         
         // Compute our progress so far
@@ -434,7 +414,6 @@ public class JournalManager: JournalManaging {
     
     public func fetchLatestCommands(skipRemoteFetch: Bool = false, completion: @escaping (FetchJournalCommandsResponse, CallbackWhenCommandsMerged?) -> Void) {
         if !skipRemoteFetch {
-//            print("!skipRemoteFetch")
             syncFiles(completion: { [weak self] syncFilesResponse in
                 guard let strongSelf = self else { return }
                 
@@ -457,7 +436,6 @@ public class JournalManager: JournalManaging {
                 }
             })
         } else {
-//            print("skipRemoteFetch")
             if journalByteOffsetsAtSyncStart == nil {
                 // We just sync'ed, so record all byte offsets now before we start fetching commands
                 journalByteOffsetsAtSyncStart = stateStore.allJournalByteOffsets()
