@@ -41,7 +41,7 @@ public enum FetchFilesResponse {
     case failure(reason: RemoteRequestFailureReason)
 }
 
-public protocol RemoteFileStoring: class {
+public protocol RemoteFileStoring: AnyObject {
     func fetchRemoteFileVersions(completionHandler: @escaping (FetchRemoteFileVersionsResponse) -> Void)
 
     func push(localFile: URL, completionHandler: @escaping (PushLocalResponse) -> Void)

@@ -48,7 +48,7 @@ public protocol JournalManaging {
     func resetSyncState()
 }
 
-public protocol ChangeTrackerDelegate: class {
+public protocol ChangeTrackerDelegate: AnyObject {
     func changeTracker(_ changeTracker: ChangeTracker, requestsExecute commands: [Command], for identifier: String, startingAt playbackPosition: PlaybackPosition, completion: @escaping (Bool) -> Void)
     
     // For logging

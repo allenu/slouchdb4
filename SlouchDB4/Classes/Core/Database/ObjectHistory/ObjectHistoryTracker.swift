@@ -18,7 +18,7 @@ public enum PlaybackPosition {
     case currentPosition
 }
 
-public protocol CommandExecutor: class {
+public protocol CommandExecutor: AnyObject {
     func execute(commands: [Command], for identifier: String,
                  startingAt playbackPosition: PlaybackPosition,
                  completion: @escaping (Bool) -> Void)
